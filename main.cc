@@ -1,0 +1,222 @@
+/*
+ * This file is part of fraud-bridge.
+ *
+ * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ *
+ * fraud-bridge is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * fraud-bridge is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <cstdio>
+#include <string>
+#include <cstdlib>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <iostream>
+#include <pwd.h>
+#include <grp.h>
+#include "tuntap.h"
+#include "wrap.h"
+#include "bridge.h"
+#include "config.h"
+
+
+using namespace std;
+
+void usage(const string &path)
+{
+	cout<<"Usage: "<<path<<" [-R remote ICMP or DNS] [-L local address (0.0.0.0)]\n"
+	    <<"\t[-p local port if DNS tunnel server (53)]\n"
+	    <<"\t<-k HMAC key> [-d tun-device (tun1)] [-D domain if DNS mode]\n"
+	    <<"\t[-i (icmp)] [-I (icmp6)] [-u (DNS)]\n"
+	    <<"\t[-U (DNS on UDP6)] [-v] [-E EDNS0 size (1024), 0 to disable]\n"
+	    <<"\t[-S usleep sec (5000)]\n"
+	    <<"\t[-X user to run as (nobody)] [-r chroot (/var/empty)]\n\n";
+
+	exit(1);
+}
+
+void die(const char *s)
+{
+	cerr<<s<<":"<<strerror(errno)<<endl;
+	exit(errno);
+}
+
+
+int main(int argc, char **argv)
+{
+	string rhost = "", lhost = "0.0.0.0", lport = "", dev = "tun1", key = "secret",
+	       domain = "", user = "nobody", chroot = "/var/empty";
+	int sock = 0, type = SOCK_RAW, protocol = IPPROTO_ICMP, r = 0, family = AF_INET;
+	wrap_t how = WRAP_INVALID;
+
+	string prog = argv[0];
+
+	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:vE:S:X:r:")) != -1) {
+		switch (r) {
+		case 'S':
+			config::useconds = strtoul(optarg, NULL, 10);
+			break;
+		case 'E':
+			config::edns0 = strtoul(optarg, NULL, 10);
+			break;
+		case 'v':
+			config::verbose = 1;
+			break;
+		case 'L':
+			lhost = optarg;
+			break;
+		case 'R':
+			rhost = optarg;
+			break;
+		case 'p':
+			lport = optarg;
+			break;
+		case 'i':
+			how = WRAP_ICMP;
+			break;
+		case 'I':
+			how = WRAP_ICMP6;
+			family = AF_INET6;
+			protocol = IPPROTO_ICMPV6;
+			break;
+		case 'u':
+			how = WRAP_DNS;
+			type = SOCK_DGRAM;
+			protocol = 0;
+			break;
+		case 'U':
+			how = WRAP_DNS;
+			type = SOCK_DGRAM;
+			family = AF_INET6;
+			protocol = 0;
+			break;
+		case 'd':
+			dev = optarg;
+			break;
+		case 'D':
+			domain = optarg;
+			break;
+		case 'k':
+			key = optarg;
+			break;
+		case 'X':
+			user = optarg;
+			break;
+		case 'r':
+			chroot = optarg;
+			break;
+		default:
+			usage("fraud-bridge");
+		}
+	}
+
+	if (how == WRAP_INVALID)
+		usage(prog);
+
+	if ((how & WRAP_DNS) && !domain.size()) {
+		cerr<<"Requiring domain argument for DNS tunnel.\n\n";
+		usage(prog);
+	}
+
+	if (key == "secret") {
+		cerr<<"Specify a HMAC key!\n\n";
+		usage(prog);
+	}
+
+	struct addrinfo *ai = NULL;
+
+	if (rhost.size())
+		how = (wrap_t)(how|WRAP_REQUEST);
+	else
+		how = (wrap_t)(how|WRAP_REPLY);
+
+	if (how == WRAP_DNS_REPLY && !lport.size())
+		lport = "53";
+
+	if (family == AF_INET6) {
+		if (lhost == "0.0.0.0")
+			lhost = "::";
+		if (rhost == "")
+			rhost = "::";
+	} else {
+		if (rhost == "")
+			rhost = "0.0.0.0";
+	}
+
+	if ((r = getaddrinfo(lhost.c_str(), lport.c_str(), NULL, &ai)) != 0) {
+		cerr<<"getaddrinfo: "<<gai_strerror(r)<<endl;
+		exit(r);
+	}
+
+	tun_tap the_tun;
+	the_tun.tun_init(dev);
+
+	bridge the_bridge(key);
+
+	if (how & WRAP_REQUEST) {
+		r = the_bridge.init(how, family, rhost, config::peer2,
+		                    config::peer1, domain);
+	} else {
+		r = the_bridge.init(how, family, rhost, config::peer1,
+		                    config::peer2, domain);
+	}
+
+	if (r < 0) {
+		cerr<<"Error: "<<the_bridge.why()<<endl;
+		exit(1);
+	}
+
+	passwd *pw = getpwnam(user.c_str());
+	if (!pw)
+		die("getpwnam");
+
+	if (::chroot(chroot.c_str()) < 0)
+		cerr<<"Warning: Not possible to chroot!\n";
+	chdir("/");
+
+	if (setgid(pw->pw_gid) < 0)
+		die("setgid");
+	if (initgroups(user.c_str(), pw->pw_gid) < 0)
+		die("initgroups");
+
+	for (;;) {
+		if ((sock = socket(family, type, protocol)) < 0)
+			die("socket");
+
+		if (bind(sock, ai->ai_addr, ai->ai_addrlen) < 0)
+			die("bind");
+
+		// bind to port 53 only happens once in WRAP_DNS_REPLY,
+		// re-binding is only for WRAP_DNS_REQUEST to unprived port
+		if (setuid(pw->pw_uid) < 0)
+			die("setuid");
+
+		// ignore error
+		r = the_bridge.forward(sock, the_tun.fd());
+		close(sock);
+
+		if (config::verbose) {
+			if (r < 0)
+				cerr<<"Error: "<<the_bridge.why()<<endl;
+			else
+				cout<<"Rebinding ...\n";
+		}
+	}
+
+	return -1;
+}
+

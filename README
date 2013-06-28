@@ -1,0 +1,66 @@
+fraud-bridge
+============
+
+Initially, this project was named cloud-bridge when I realized
+that this name was already registered with a lot of companies.
+It was of course actually not made to do the name might suggest.
+fraud-bridge does nothing new and can well be substituted by already
+exiting tools like icmptx, iodine, ozzyman DNS, nstx etc.
+
+So when I was forced to look for a new name for my project,
+something that might sounds similar to "cloud", I ended up
+at "fraud." (In german "Maut" may also would make sense, but
+nobody would get the joke!)
+
+So why yet another tunneling tool? Why should I use fraud-bridge instead
+of icmptx/nstx etc, you might ask?
+Answer: You shouldnt. Stick with what works for you. This project
+is just for my own understanding of kernel (tuntap) internals and
+protocol playings.
+
+fraud-bridge allows to tunnel TCP connections through ICMP, ICMPv6, DNS
+via UDP or DNS via UDP6.
+
+It automatically patches TCP MSS option to achieve a non-fragmented stream
+of packets. It also uses MD5 to (HMAC-)integrity protect the tunnel
+from evil injected TCP packets. If you need privacy, you must use encryption
+yourself. Its assumed that you only use SSH over the tunnel anyways.
+(Either directly or with the SSH proxy option if you need HTTP tunneled.)
+
+fraud-bridge also uses EDNS0 extension headers to put as many bytes into
+the TXT reply as possible. In my tests, as it tries to answer any timing
+packets, it produces no logs in a bind9 system logfile.
+
+fraud-bridge also includes some other techniques to conform with
+certain bind limitations, e.g. quotas/limiting.
+
+After start, it opens a point-to-point tunnel 1.2.3.4 <-> 1.2.3.5
+You then need to start "inside.sh" on the inside and "outside.sh"
+on the outside (on outside it can be at any given time before,
+it basically prevents kernel from ICMP replies and assigns the IPs).
+
+Looks like so:
+
+# ./fraud-bridge -u -R 127.0.0.1 -D f.sub.dnstunnel.com -k key
+(and starting inside.sh)
+
+And on outside end of tunnel (e.g. the internet):
+# ./fraud-bridge -u -L 192.168.2.222 -D f.sub.dnstunnel.com -k key
+(and starting outside.sh)
+
+for a DNS tunnel with a local (127.0.0.1) named running and
+the outside peer being at 192.168.2.222. As said, outside part of
+tunnel can (and actually needs to) be started beforehand and will just
+listen for the peer to open the tunnel. Example zonefiles are included.
+
+You can then use "ssh -x -v 1.2.3.5" to get a SSH connection to
+192.168.2.222.
+
+You can also do that with ICMP (-i) and ICMP on IPv6 (-I) or DNS on UDP via IPv6 (-U).
+It's also possible to switch tunnel from DNS to ICMP beyond your SSH connection,
+as the TCP state is kept in local and remote kernel and not in the bridge.
+
+fraud-bridge will leave stdout open for reporting errors or verbose messages,
+so you need to run it on a screen or redirect output to /dev/null if you need
+it running in background.
+
