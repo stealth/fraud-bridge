@@ -158,9 +158,9 @@ int bridge::forward_dns(int sock, int tap)
 	// 130 byte payload + max 40byte TCP-hdr + DIGEST (16) *4/3 for b64 encoding + domain size
 	in_mss = 130 - domain.size();
 
-	if (config::edns0 == 0)
-		out_mss = 300;
-	else if (config::edns0 > 512)
+	if (config::edns0 < 512)
+		out_mss = 200;
+	else
 		out_mss = config::edns0 - 312;
 
 	wrapper->set_mss(in_mss, out_mss);
