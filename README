@@ -3,7 +3,7 @@ fraud-bridge
 
 Initially, this project was named cloud-bridge when I realized
 that this name was already registered with a lot of companies.
-It was of course actually not made to do the name might suggest.
+It was of course actually not made to do what the name might suggest.
 fraud-bridge does nothing new and can well be substituted by already
 exiting tools like icmptx, iodine, ozzyman DNS, nstx etc.
 
@@ -24,7 +24,7 @@ via UDP or DNS via UDP6.
 It automatically patches TCP MSS option to achieve a non-fragmented stream
 of packets. It also uses MD5 to (HMAC-)integrity protect the tunnel
 from evil injected TCP packets. If you need privacy, you must use encryption
-yourself. Its assumed that you only use SSH over the tunnel anyways.
+yourself. Its assumed that you use SSH over the tunnel anyways.
 (Either directly or with the SSH proxy option if you need HTTP tunneled.)
 
 fraud-bridge also uses EDNS0 extension headers to put as many bytes into
@@ -56,7 +56,8 @@ listen for the peer to open the tunnel. Example zonefiles are included.
 You can then use "ssh -x -v 1.2.3.5" to get a SSH connection to
 192.168.2.222.
 
-You can also do that with ICMP (-i) and ICMP on IPv6 (-I) or DNS on UDP via IPv6 (-U).
+You can also do that with ICMP (-i) and ICMP on IPv6 (-I) or DNS on UDP via
+IPv6 (-U).
 It's also possible to switch tunnel from DNS to ICMP beyond your SSH connection,
 as the TCP state is kept in local and remote kernel and not in the bridge.
 
