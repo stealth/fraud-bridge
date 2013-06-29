@@ -163,6 +163,9 @@ int bridge::forward_dns(int sock, int tap)
 	else
 		out_mss = config::edns0 - 312;
 
+	if (out_mss > 1024)
+		out_mss = 1024;
+
 	wrapper->set_mss(in_mss, out_mss);
 
 	int max = sock > tap ? sock : tap;
