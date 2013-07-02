@@ -29,7 +29,10 @@ yourself. Its assumed that you use SSH over the tunnel anyways.
 
 fraud-bridge also uses EDNS0 extension headers to put as many bytes into
 the TXT reply as possible. In my tests, as it tries to answer any timing
-packets, it produces no logs in a bind9 system logfile.
+packets, it produces no logs in a bind9 system logfile. If you change
+the EDNS0 (-E), you need to do it on both ends with the same value.
+(As inside announces maximum UDP payload size to the nameserver and outside
+endpoint calculates the MSS from that what was given with -E.)
 
 fraud-bridge also includes some other techniques to conform with
 certain bind limitations, e.g. quotas/limiting.

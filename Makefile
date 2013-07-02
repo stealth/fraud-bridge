@@ -1,6 +1,8 @@
 CXX=c++
-CFLAGS=-Wall -c -O2 -std=c++0x
-#CFLAGS=-Wall -c -O2 -std=c++11
+CFLAGS=-Wall -c -O2 -std=c++0x -pedantic
+
+# actually C++11, but older GCC's do not support c++11
+#CFLAGS=-Wall -c -O2 -std=c++11 -pedantic
 
 foo: all
 

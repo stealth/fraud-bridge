@@ -30,6 +30,6 @@ namespace config {
 	extern uint16_t edns0;
 	extern uint32_t max_tx;
 	extern std::string peer1, peer2;
-};
+}
 
 #endif

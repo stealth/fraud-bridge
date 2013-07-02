@@ -25,8 +25,8 @@ namespace config {
 	uint32_t useconds = 5000;
 	uint16_t edns0 = 1024;
 
-	uint32_t max_tx = 1<<19;
+	uint32_t max_tx = 1<<20;
 
 	std::string peer1 = "1.2.3.4", peer2 = "1.2.3.5";
-};
+}
 

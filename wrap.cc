@@ -59,7 +59,7 @@ string wrap::icmp_echo(const string &data, uint8_t type)
 	static uint16_t seq = 0;
 	const iphdr *iph = (const iphdr *)data.c_str();
 
-	if ((uint16_t)(iph->ihl<<2) >= data.size() || iph->protocol != IPPROTO_TCP)
+	if ((uint16_t)(iph->ihl<<2) >= data.size() || iph->protocol != IPPROTO_TCP || data.size() > 4096)
 		return result;
 
 	const tcphdr *tcph = (const tcphdr *)(data.c_str() + (iph->ihl<<2));
@@ -69,20 +69,25 @@ string wrap::icmp_echo(const string &data, uint8_t type)
 	icmph.type = type;
 	icmph.un.echo.sequence = htons(++seq);
 
-	char packet[sizeof(icmph) + DIGEST_LEN + data.size() - (iph->ihl<<2)];
+	const size_t psize = sizeof(icmph) + DIGEST_LEN + data.size() - (iph->ihl<<2);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet, &icmph, sizeof(icmph));
 	memcpy(packet + sizeof(icmph) + DIGEST_LEN, tcph, data.size() - (iph->ihl<<2));
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE];
 	HMAC(md, key.c_str(), (int)key.size(), (unsigned char *)packet + sizeof(icmph) + DIGEST_LEN,
-	     sizeof(packet) - sizeof(icmph) - DIGEST_LEN, hmac, NULL);
+	     psize - sizeof(icmph) - DIGEST_LEN, hmac, NULL);
 	memcpy(packet + sizeof(icmph), hmac, DIGEST_LEN);
 
 	icmphp = (icmphdr *)packet;
-	icmphp->sum = in_cksum((unsigned short *)packet, sizeof(packet));
+	icmphp->sum = in_cksum((unsigned short *)packet, psize);
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
+
+	delete [] packet;
 	return result;
 }
 
@@ -106,7 +111,10 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	if (memcmp(data.c_str() + (iph->ihl<<2) + sizeof(icmphdr), hmac, DIGEST_LEN) != 0)
 		return result;
 
-	char packet[data.size() - sizeof(icmphdr) - DIGEST_LEN + sizeof(new_iph) - (iph->ihl<<2)];
+	const uint16_t psize = data.size() - sizeof(icmphdr) - DIGEST_LEN + sizeof(new_iph) - (iph->ihl<<2);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet + sizeof(new_iph), data.c_str() + (iph->ihl<<2) + sizeof(icmphdr) + DIGEST_LEN,
 	       data.size() - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN);
 
@@ -125,9 +133,9 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 		// outside tunnel endpoint is decapsulating what comes from inside, so patch in
 		// max outgoing MSS; and vice versa
 		if (is_wrap_reply())
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), out_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, out_mss);
 		else
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), in_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, in_mss);
 	}
 
 	tcph->th_sum = 0;
@@ -137,14 +145,15 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	memcpy(packet, &new_iph, sizeof(new_iph));
 
 	iphdr *new_iph_ptr = (iphdr *)packet;
-	new_iph_ptr->tot_len = htons(sizeof(packet));
+	new_iph_ptr->tot_len = htons(psize);
 	new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(new_iph));
 
 	// no need to set remote peer on tunnel endpoint inside, which is using -R
 	if (is_wrap_reply())
 		remote_peer = *from;
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
+	delete [] packet;
 	return result;
 }
 
@@ -176,20 +185,23 @@ string wrap::icmp6_echo(const string &data, uint8_t type)
 
 	icmph.icmp6_dataun.icmp6_un_data16[1] = htons(++seq);
 
-	char packet[sizeof(icmph) + DIGEST_LEN + data.size() - (iph->ihl<<2)];
+	const size_t psize = sizeof(icmph) + DIGEST_LEN + data.size() - (iph->ihl<<2);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet, &icmph, sizeof(icmph));
 	memcpy(packet + sizeof(icmph) + DIGEST_LEN, tcph, data.size() - (iph->ihl<<2));
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE];
 	HMAC(md, key.c_str(), (int)key.size(), (unsigned char *)packet + sizeof(icmph) + DIGEST_LEN,
-	     sizeof(packet) - sizeof(icmph) - DIGEST_LEN, hmac, NULL);
+	     psize - sizeof(icmph) - DIGEST_LEN, hmac, NULL);
 	memcpy(packet + sizeof(icmph), hmac, DIGEST_LEN);
 
 	icmphp = (icmp6_hdr *)packet;
-	icmphp->icmp6_cksum = in_cksum((unsigned short *)packet, sizeof(packet));
+	icmphp->icmp6_cksum = in_cksum((unsigned short *)packet, psize);
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
 	return result;
 }
 
@@ -229,7 +241,10 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	if (memcmp(data.c_str() + sizeof(icmp6_hdr), hmac, DIGEST_LEN) != 0)
 		return result;
 
-	char packet[data.size() - sizeof(icmp6_hdr) - DIGEST_LEN + sizeof(new_iph)];
+	const uint16_t psize = data.size() - sizeof(icmp6_hdr) - DIGEST_LEN + sizeof(new_iph);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet + sizeof(new_iph), data.c_str() + sizeof(icmp6_hdr) + DIGEST_LEN,
 	       data.size() - sizeof(icmp6_hdr) - DIGEST_LEN);
 
@@ -248,9 +263,9 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 		// outside tunnel endpoint is decapsulating what comes from inside, so patch in
 		// max outgoing MSS; and vice versa
 		if (is_wrap_reply())
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), out_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, out_mss);
 		else
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), in_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, in_mss);
 	}
 
 	tcph->th_sum = 0;
@@ -260,13 +275,14 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	memcpy(packet, &new_iph, sizeof(new_iph));
 
 	iphdr *new_iph_ptr = (iphdr *)packet;
-	new_iph_ptr->tot_len = htons(sizeof(packet));
+	new_iph_ptr->tot_len = htons(psize);
 	new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(new_iph));
 
 	if (is_wrap_reply())
 		remote_peer6 = *from6;
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
+	delete [] packet;
 	return result;
 }
 
@@ -276,27 +292,28 @@ string wrap::dns_request(const string &data)
 	string result = "";
 	const iphdr *iph = (const iphdr *)data.c_str();
 
-	if ((uint16_t)(iph->ihl<<2) >= data.size() || iph->protocol != IPPROTO_TCP)
+	if ((uint16_t)(iph->ihl<<2) >= data.size() || iph->protocol != IPPROTO_TCP || data.size() > 4096)
 		return result;
 
 	const tcphdr *tcph = (const tcphdr *)(data.c_str() + (iph->ihl<<2));
 
-	char packet[DIGEST_LEN + data.size() - (iph->ihl<<2)];
+	const size_t psize = DIGEST_LEN + data.size() - (iph->ihl<<2);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet + DIGEST_LEN, tcph, data.size() - (iph->ihl<<2));
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE];
 	HMAC(md, key.c_str(), (int)key.size(), (unsigned char *)packet + DIGEST_LEN,
-	     sizeof(packet) - DIGEST_LEN, hmac, NULL);
+	     psize - DIGEST_LEN, hmac, NULL);
 	memcpy(packet, hmac, DIGEST_LEN);
 
 	string b64 = "";
-	b64_encode(string(packet, sizeof(packet)), b64);
-
+	b64_encode(string(packet, psize), b64);
 	b64 += "." + domain;
 
-	if (b64.size() > 254) {
-	}
+	delete [] packet;
 
 	dns->query(b64, result, dns_type::TXT);
 
@@ -314,13 +331,16 @@ string wrap::dns_reply(const string &data)
 
 	const tcphdr *tcph = (const tcphdr *)(data.c_str() + (iph->ihl<<2));
 
-	char packet[DIGEST_LEN + data.size() - (iph->ihl<<2)];
+	const size_t psize = DIGEST_LEN + data.size() - (iph->ihl<<2);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet + DIGEST_LEN, tcph, data.size() - (iph->ihl<<2));
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE];
 	HMAC(md, key.c_str(), (int)key.size(), (unsigned char *)packet + DIGEST_LEN,
-	     sizeof(packet) - DIGEST_LEN, hmac, NULL);
+	     psize - DIGEST_LEN, hmac, NULL);
 	memcpy(packet, hmac, DIGEST_LEN);
 
 	sockaddr_in dst;
@@ -329,8 +349,9 @@ string wrap::dns_reply(const string &data)
 	if (family == AF_INET6)
 		to = reinterpret_cast<sockaddr *>(&dst6);
 
-	if (dns->txt_response(string(packet, sizeof(packet)), tmp, to) < 0)
+	if (dns->txt_response(string(packet, psize), tmp, to) < 0)
 		return result;
+	delete [] packet;
 
 	if (family == AF_INET)
 		memcpy(&remote_peer, to, sizeof(remote_peer));
@@ -373,7 +394,10 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 	if (tmp.size() < DIGEST_LEN + sizeof(tcphdr))
 		return result;
 
-	char packet[tmp.size() - DIGEST_LEN + sizeof(new_iph)];
+	const uint16_t psize = tmp.size() - DIGEST_LEN + sizeof(new_iph);
+	char *packet = new (nothrow) char[psize];
+	if (!packet)
+		return result;
 	memcpy(packet + sizeof(new_iph), tmp.c_str() + DIGEST_LEN,
 	       tmp.size() - DIGEST_LEN);
 
@@ -392,9 +416,9 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 		// outside tunnel endpoint is decapsulating what comes from inside, so patch in
 		// max outgoing MSS; and vice versa
 		if (is_wrap_reply())
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), out_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, out_mss);
 		else
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), in_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, in_mss);
 	}
 
 	tcph->th_sum = 0;
@@ -404,11 +428,12 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 	memcpy(packet, &new_iph, sizeof(new_iph));
 
 	iphdr *new_iph_ptr = (iphdr *)packet;
-	new_iph_ptr->tot_len = htons(sizeof(packet));
+	new_iph_ptr->tot_len = htons(psize);
 	new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(new_iph));
 
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
+	delete [] packet;
 	return result;
 }
 
@@ -430,7 +455,8 @@ string wrap::de_dns_reply(const string &data)
 	if (memcmp(tmp.c_str(), hmac, DIGEST_LEN) != 0)
 		return tmp;
 
-	char packet[tmp.size() - DIGEST_LEN + sizeof(new_iph)];
+	const uint16_t psize = tmp.size() - DIGEST_LEN + sizeof(new_iph);
+	char *packet = new (nothrow) char[psize];
 	memcpy(packet + sizeof(new_iph), tmp.c_str() + DIGEST_LEN,
 	       tmp.size() - DIGEST_LEN);
 
@@ -449,9 +475,9 @@ string wrap::de_dns_reply(const string &data)
 		// outside tunnel endpoint is decapsulating what comes from inside, so patch in
 		// max outgoing MSS; and vice versa
 		if (is_wrap_reply())
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), out_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, out_mss);
 		else
-			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + sizeof(packet), in_mss);
+			patch_mss(packet + sizeof(new_iph) + sizeof(tcphdr), packet + psize, in_mss);
 	}
 
 	tcph->th_sum = 0;
@@ -461,10 +487,11 @@ string wrap::de_dns_reply(const string &data)
 	memcpy(packet, &new_iph, sizeof(new_iph));
 
 	iphdr *new_iph_ptr = (iphdr *)packet;
-	new_iph_ptr->tot_len = htons(sizeof(packet));
+	new_iph_ptr->tot_len = htons(psize);
 	new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(new_iph));
 
-	result.assign(packet, sizeof(packet));
+	result.assign(packet, psize);
+	delete [] packet;
 	return result;
 }
 

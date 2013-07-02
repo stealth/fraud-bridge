@@ -192,10 +192,13 @@ int bridge::forward_dns(int sock, int tap)
 	}
 
 	uint32_t seq = 0;
-	struct timeval tv;
+	struct timeval tv, *tvp = &tv;
 	bool did_send = 0;
 
 	tx = 0;
+
+	if (how == WRAP_DNS_REPLY)
+		tvp = NULL;
 
 	for (;;) {
 		FD_ZERO(&rset);
@@ -206,11 +209,11 @@ int bridge::forward_dns(int sock, int tap)
 		tv.tv_usec = config::useconds;
 
 		// Do not overload DNS server quota
-		if (did_send)
+		if (how == WRAP_DNS_REQUEST && did_send)
 			usleep(config::useconds);
 		did_send = 0;
 
-		if ((r = select(max + 1, &rset, NULL, NULL, &tv)) < 0)
+		if ((r = select(max + 1, &rset, NULL, NULL, tvp)) < 0)
 			continue;
 
 		// If there is a tunnel packet, take it if we can send it out
