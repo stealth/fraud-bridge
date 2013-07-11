@@ -192,7 +192,7 @@ int DNS::query(const string &host, string &result, uint16_t qtype)
 
 	size_t buflen = sizeof(dnsh) + 2*sizeof(uint16_t);
 	if (host2qname(host, qname) < 0)
-		return build_error("query::cannot encode hostname");
+		return build_error("query: cannot encode hostname");
 	buflen += qname.length();
 
 	if (config::edns0)
@@ -200,7 +200,7 @@ int DNS::query(const string &host, string &result, uint16_t qtype)
 
 	char *buf = new (nothrow) char[buflen];
 	if (!buf)
-		return build_error("query::OOM");
+		return build_error("query: OOM");
 
 	memcpy(buf, &dnsh, sizeof(dnsh));
 	size_t idx = sizeof(dnsh);
@@ -282,15 +282,15 @@ int DNS::parse_query(const string &msg, string &packet, const sockaddr *from)
 		return -1;
 
 	if (sizeof(dnshdr) + nl + 4 > msg.size() || fqdn.find(domain) == string::npos)
-		return -1;
+		return build_error("parse_query: Invalid query (1)");
 	string::size_type domain_start = 0;
 	if ((domain_start = fqdn.find("." + domain)) == string::npos)
-		return -1;
+		return build_error("parse_query: Invalid query (2)");
 
 	b64_decode(fqdn.substr(0, domain_start), packet);
 
 	if (!packet.size())
-		return -1;
+		return build_error("parse_query: Invalid query (3)");
 
 	a_Q Q;
 
@@ -321,7 +321,7 @@ int DNS::txt_response(const string &msg, string &result, sockaddr *to)
 	last_Qs.pop_front();
 
 	if (Q.Q_string.size() > 256 || Q.Q_string.size() < 8 || msg.size() > 1500)
-		return -1;
+		return build_error("txt_response: invalid Q entry or msg size");
 
 	memset(buf, 0, sizeof(buf));
 
@@ -399,14 +399,14 @@ int DNS::parse_txt_response(const string &msg, string &packet)
 	const char *qname = msg.c_str() + sizeof(dnshdr);
 
 	if (ntohs(hdr->q_count) != 1 || hdr->rcode != 0)
-		return -1;
+		return build_error("parse_txt_response: invalid packet (1)");
 
 	string fqdn = "";
 	int nl = 0;	// length of DNS encoded name
 	if ((nl = qname2host(string(qname, msg.size() - sizeof(dnshdr)), fqdn, enc_domain)) < 0)
-		return -1;
+		return build_error("parse_txt_response: invalid packet (2)");
 	if (fqdn.find(domain) == string::npos || nl >= 0x1000 || nl <= 0)
-		return -1;
+		return build_error("parse_txt_response: invalid packet (3)");
 	const uint16_t *type_ptr = NULL, *rdlen_ptr = NULL;
 	uint8_t olen = 0;
 
@@ -422,18 +422,18 @@ int DNS::parse_txt_response(const string &msg, string &packet)
 		else
 			idx += nl;
 		if (idx + 5*sizeof(uint16_t) > msg.c_str() + msg.size())
-			return -1;
+			return build_error("parse_txt_response: invalid packet (4)");
 		type_ptr = (const uint16_t *)idx;
 		rdlen_ptr = (const uint16_t *)(type_ptr + 4);	// 4 16bit words
 
 		if (ntohs(*type_ptr) != dns_type::TXT)
-			return -1;
+			return build_error("parse_txt_response: invalid packet (5)");
 		if (ntohs(*rdlen_ptr) == 0)
-			return -1;
+			return build_error("parse_txt_response: invalid packet (6)");
 		txt_rr = (const char *)(rdlen_ptr + 1);
 
 		if (txt_rr + ntohs(*rdlen_ptr) > msg.c_str() + msg.size())
- 			return -1;
+			return build_error("parse_txt_response: invalid packet (7)");
 
 		const char *txt_octets = txt_rr;
 
@@ -442,7 +442,7 @@ int DNS::parse_txt_response(const string &msg, string &packet)
 			if ((olen = txt_octets[0]) == 0)
 				break;
 			if (txt_octets + 1 + olen > txt_rr + ntohs(*rdlen_ptr))
-				return -1;
+				return build_error("parse_txt_response: invalid packet (8)");;
 			s += string(txt_octets + 1, olen);
 			txt_octets += olen + 1;
 			j += olen + 1;
