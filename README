@@ -34,7 +34,7 @@ the EDNS0 (-E), you need to do it on both ends with the same value.
 (As inside announces maximum UDP payload size to the nameserver and outside
 endpoint calculates the MSS from that what was given with -E.)
 
-fraud-bridge also includes some other techniques to conform with
+fraud-bridge also includes some other techniques to cope with
 certain bind limitations, e.g. quotas/limiting.
 
 After start, it opens a point-to-point tunnel 1.2.3.4 <-> 1.2.3.5
