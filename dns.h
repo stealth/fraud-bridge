@@ -30,13 +30,11 @@
 #include <errno.h>
 #include <bits/endian.h>
 #include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include "net-headers.h"
 
-
-struct sockaddrLess
-{
-	bool operator()(sockaddr s1, sockaddr s2);
-};
 
 
 int host2qname(const std::string&, std::string&);
@@ -64,7 +62,7 @@ class DNS {
 
 	// The domainname used, and its DNS encoded value
 	std::string err, domain, enc_domain;
-	std::map<sockaddr, uint16_t, sockaddrLess> ns_map;
+	std::map<addrinfo *, socklen_t> ns_map;
 
 	// last N questions received
 	std::list<a_Q> last_Qs;

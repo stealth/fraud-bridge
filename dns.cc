@@ -47,11 +47,6 @@ dns_command dns_timer_cmd = {
 };
 
 
-bool sockaddrLess::operator()(sockaddr s1, sockaddr s2)
-{
-	return memcmp(&s1, &s2, sizeof(s1)) < 0;
-}
-
 /*  "\003foo\003bar\000" -> foo.bar
  */
 int qname2host(const string &msg, string &result)
@@ -237,6 +232,9 @@ DNS::~DNS()
 {
 	if (sock > 0)
 		close(sock);
+
+	for (auto i : ns_map)
+		freeaddrinfo(i.first);
 }
 
 
@@ -255,8 +253,7 @@ int DNS::add_ns(const string &host, const string &port = "53")
 		return -1;
 	}
 
-	ns_map[*(ai->ai_addr)] = ai->ai_addrlen;
-	freeaddrinfo(ai);
+	ns_map[ai] = ai->ai_addrlen;
 	return 0;
 }
 
@@ -465,8 +462,8 @@ int DNS::send(const string &msg)
 			return build_error("send::socket");
 	}
 
-	for (map<sockaddr, uint16_t>::iterator i = ns_map.begin(); i != ns_map.end(); ++i)
-		sendto(sock, msg.c_str(), msg.length(), 0, &(i->first), i->second);
+	for (auto i = ns_map.begin(); i != ns_map.end(); ++i)
+		sendto(sock, msg.c_str(), msg.length(), 0, i->first->ai_addr, i->second);
 	return 0;
 }
 
