@@ -1,5 +1,6 @@
 #include <string>
 #include <cstring>
+#include <limits>
 
 
 // Orig b64 encoding:
@@ -14,12 +15,16 @@ using namespace std;
  */
 string &b64_decode(const string &src, string &dst)
 {
-	int bit_offset, byte_offset, idx, i = 0, n = 0, j = 0;
+	unsigned int bit_offset = 0, byte_offset = 0, idx = 0, i = 0, n = 0, j = 0;
 	const char *p = NULL;
 
 	dst = "";
-	dst.resize(src.size()*4 + 1, 0);
-	while (src[j] && (p = strchr(b64, src[j]))) {
+	string::size_type srclen = src.size();
+	if (srclen >= numeric_limits<unsigned int>::max() - 10)
+		return dst;
+	dst.reserve(srclen + 10);
+	dst.resize(srclen + 10);
+	while (j < srclen && (p = strchr(b64, src[j]))) {
 		idx = (int)(p - b64);
 		byte_offset = (i*6)/8;
 		bit_offset = (i*6)%8;
@@ -37,8 +42,8 @@ string &b64_decode(const string &src, string &dst)
 	}
 
 	// in original B64, this would be '='
-	if (src[j] == '-')
-		n -= 1;
+	if (src[j] == '-' && n > 0)
+		--n;
 
 	dst.resize(n);
 	return dst;
