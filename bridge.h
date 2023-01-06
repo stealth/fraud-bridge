@@ -17,8 +17,8 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __bridge_h__
-#define __bridge_h__
+#ifndef fraudbridge_bridge_h
+#define fraudbridge_bridge_h
 
 #include <string>
 #include <cstring>
@@ -27,16 +27,19 @@
 #include "wrap.h"
 
 
+namespace fraudbridge {
+
+
 class bridge {
 
-	wrap *wrapper;
-	wrap_t how;
+	wrap *d_wrapper{nullptr};
+	wrap_t d_how{WRAP_INVALID};
 
-	std::string err, key, domain;
+	std::string d_err{""}, d_key{""}, d_domain{""};
 
-	int family, saved_errno;
+	int d_family{AF_INET}, d_saved_errno{0};
 
-	uint32_t tx;
+	uint32_t d_tx{0};
 
 	int forward_icmp(int, int);
 
@@ -45,14 +48,13 @@ class bridge {
 public:
 
 	bridge(const std::string &k)
-		: wrapper(NULL), how(WRAP_INVALID), err(""), key(k),
-	          family(AF_INET), saved_errno(0), tx(0)
+		: d_key(k)
 	{
 	}
 
 	~bridge()
 	{
-		delete wrapper;
+		delete d_wrapper;
 	}
 
 	int init(wrap_t w, int, const std::string &, const std::string &, const std::string &,
@@ -60,12 +62,12 @@ public:
 
 	int build_error(const std::string &s)
 	{
-		err = "bridge::";
-		err += s;
+		d_err = "bridge::";
+		d_err += s;
 		if (errno) {
-			err += ": ";
-			err += strerror(errno);
-			saved_errno = errno;
+			d_err += ": ";
+			d_err += strerror(errno);
+			d_saved_errno = errno;
 		}
 		return -1;
 	}
@@ -74,14 +76,17 @@ public:
 
 	const char *why()
 	{
-		return err.c_str();
+		return d_err.c_str();
 	}
 
 	int error()
 	{
-		return saved_errno;
+		return d_saved_errno;
 	}
 };
+
+
+}
 
 #endif
 

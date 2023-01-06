@@ -34,31 +34,34 @@
 #include "config.h"
 
 
+namespace fraudbridge {
+
+
 using namespace std;
 
 
 int bridge::init(wrap_t wt, int af, const string &peer, const string &remote,
 	         const string &local, const string &d)
 {
-	family = af;
-	how = wt;
-	domain = d;
+	d_family = af;
+	d_how = wt;
+	d_domain = d;
 
-	if ((wrapper = new (nothrow) wrap(wt, af, key, domain)) == NULL)
+	if ((d_wrapper = new (nothrow) wrap(wt, af, d_key, d_domain)) == nullptr)
 		return build_error("init:OOM:");
 
 	int r = 0;
-	if ((r = wrapper->init(peer, remote, local)) < 0)
-		return build_error(string("init->") += wrapper->why());
+	if ((r = d_wrapper->init(peer, remote, local)) < 0)
+		return build_error(string("init->") += d_wrapper->why());
 	return r;
 }
 
 
 int bridge::forward(int sock, int tap)
 {
-	if (how & WRAP_DNS)
+	if (d_how & WRAP_DNS)
 		return forward_dns(sock, tap);
-	else if ((how & WRAP_ICMP) || (how & WRAP_ICMP6))
+	else if ((d_how & WRAP_ICMP) || (d_how & WRAP_ICMP6))
 		return forward_icmp(sock, tap);
 
 	return build_error("forward: Invalid wrapper specification.");
@@ -67,29 +70,29 @@ int bridge::forward(int sock, int tap)
 
 int bridge::forward_icmp(int sock, int tap)
 {
-	if (!wrapper)
+	if (!d_wrapper)
 		return build_error("forward_icmp: No wrapper defined");
 
-	if (how & WRAP_DNS)
+	if (d_how & WRAP_DNS)
 		return build_error("forward_icmp: Huh? try to forward DNS via ICMP?");
 
 	uint16_t in_mss = 1024, out_mss = 1024;
-	wrapper->set_mss(in_mss, out_mss);
+	d_wrapper->set_mss(in_mss, out_mss);
 
 	int max = sock > tap ? sock : tap;
 	int r = -1;
 	fd_set rset;
 
-	char buf[4096];
+	char buf[4096] = {0};
 	string packet = "";
-	net_headers::tap_header *th_ptr = NULL, th = {0, htons(net_headers::ETH_P_IP)};
+	net_headers::tap_header *th_ptr = nullptr, th = {0, htons(net_headers::ETH_P_IP)};
 
 	sockaddr_in dst4;
 	sockaddr_in6 dst6;
-	sockaddr *dst = NULL;
+	sockaddr *dst = nullptr;
 	socklen_t dlen = 0;
 
-	if (family == AF_INET) {
+	if (d_family == AF_INET) {
 		dst = (struct sockaddr *)&dst4;
 		dlen = sizeof(dst4);
 	} else {
@@ -102,7 +105,7 @@ int bridge::forward_icmp(int sock, int tap)
 		FD_SET(sock, &rset);
 		FD_SET(tap, &rset);
 
-		if ((r = select(max + 1, &rset, NULL, NULL, NULL)) < 0)
+		if ((r = select(max + 1, &rset, nullptr, nullptr, nullptr)) < 0)
 			continue;
 
 		if (FD_ISSET(tap, &rset)) {
@@ -114,8 +117,8 @@ int bridge::forward_icmp(int sock, int tap)
 			if (th_ptr->proto != htons(net_headers::ETH_P_IP))
 				continue;
 
-			packet = wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
-			wrapper->get_dst(dst);
+			packet = d_wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
+			d_wrapper->get_dst(dst);
 
 			if (config::verbose)
 				cout<<"icmp -> "<<packet.size()<<endl;
@@ -129,8 +132,8 @@ int bridge::forward_icmp(int sock, int tap)
 			if ((r = recvfrom(sock, buf, sizeof(buf), 0, dst, &dlen)) <= 0)
 				continue;
 
-			packet = string((char *)&th, sizeof(th));
-			packet += wrapper->unpack(string(buf, r), dst);
+			packet = string(reinterpret_cast<char *>(&th), sizeof(th));
+			packet += d_wrapper->unpack(string(buf, r), dst);
 			if (packet.size() > sizeof(th)) {
 				if (writen(tap, packet.c_str(), packet.size()) <= 0)
 					continue;
@@ -147,16 +150,16 @@ int bridge::forward_icmp(int sock, int tap)
 
 int bridge::forward_dns(int sock, int tap)
 {
-	if (!wrapper)
+	if (!d_wrapper)
 		return build_error("forward_dns: No wrapper defined");
 
-	if (domain.size() > 100)
+	if (d_domain.size() > 100)
 		return build_error("forward_dns: Insane large domainname");
 
 	uint16_t in_mss = 0, out_mss = 0;
 
 	// 130 byte payload + max 40byte TCP-hdr + DIGEST (16) *4/3 for b64 encoding + domain size
-	in_mss = 130 - domain.size();
+	in_mss = 130 - d_domain.size();
 
 	if (config::edns0 < 512)
 		out_mss = 200;
@@ -166,24 +169,24 @@ int bridge::forward_dns(int sock, int tap)
 	if (out_mss > 1024)
 		out_mss = 1024;
 
-	wrapper->set_mss(in_mss, out_mss);
+	d_wrapper->set_mss(in_mss, out_mss);
 
 	int max = sock > tap ? sock : tap;
 	int r = -1;
 	fd_set rset;
 
-	char buf[4096];
+	char buf[4096] = {0};
 	string packet = "";
-	net_headers::tap_header *th_ptr = NULL, th = {0, htons(net_headers::ETH_P_IP)};
+	net_headers::tap_header *th_ptr = nullptr, th = {0, htons(net_headers::ETH_P_IP)};
 	net_headers::iphdr dummy_hdr;
 	dummy_hdr.protocol = IPPROTO_TCP;
 
 	sockaddr_in dst4;
 	sockaddr_in6 dst6;
-	sockaddr *dst = NULL;
+	sockaddr *dst = nullptr;
 	socklen_t dlen = 0;
 
-	if (family == AF_INET) {
+	if (d_family == AF_INET) {
 		dst = (struct sockaddr *)&dst4;
 		dlen = sizeof(dst4);
 	} else {
@@ -195,10 +198,10 @@ int bridge::forward_dns(int sock, int tap)
 	struct timeval tv, *tvp = &tv;
 	bool did_send = 0;
 
-	tx = 0;
+	d_tx = 0;
 
-	if (how == WRAP_DNS_REPLY)
-		tvp = NULL;
+	if (d_how == WRAP_DNS_REPLY)
+		tvp = nullptr;
 
 	for (;;) {
 		FD_ZERO(&rset);
@@ -209,11 +212,11 @@ int bridge::forward_dns(int sock, int tap)
 		tv.tv_usec = config::useconds;
 
 		// Do not overload DNS server quota
-		if (how == WRAP_DNS_REQUEST && did_send)
+		if (d_how == WRAP_DNS_REQUEST && did_send)
 			usleep(config::useconds);
 		did_send = 0;
 
-		if ((r = select(max + 1, &rset, NULL, NULL, tvp)) < 0)
+		if ((r = select(max + 1, &rset, nullptr, nullptr, tvp)) < 0)
 			continue;
 
 		// If there is a tunnel packet, take it if we can send it out
@@ -222,7 +225,7 @@ int bridge::forward_dns(int sock, int tap)
 
 		if (FD_ISSET(tap, &rset)) {
 			// Do not take packet off tunnel, if we cannot send it out anyways
-			if (!wrapper->can_respond()) {
+			if (!d_wrapper->can_respond()) {
 				if (config::verbose)
 					cout<<"Empty rcv queue\n";
 
@@ -233,36 +236,36 @@ int bridge::forward_dns(int sock, int tap)
 
 			if ((r = read(tap, buf, sizeof(buf))) <= 0)
 				break;
-			th_ptr = (net_headers::tap_header *)buf;
+			th_ptr = reinterpret_cast<net_headers::tap_header *>(buf);
 
 			if (th_ptr->proto != htons(net_headers::ETH_P_IP))
 				break;
 
-			packet = wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
-			wrapper->get_dst(dst);
+			packet = d_wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
+			d_wrapper->get_dst(dst);
 
 			if (config::verbose)
 				cout<<"DNS -> "<<packet.size()<<endl;
 
 			// ignore errors
 			if (packet.size()) {
-				tx += packet.size();
+				d_tx += packet.size();
 				sendto(sock, packet.c_str(), packet.size(), 0, dst, dlen);
 				did_send = 1;
 			}
 
 		// If there is no tunnel packet, answer to last (timer-)request or send timer
 		// command request ourself
-		} else if (wrapper->can_respond()) {
+		} else if (d_wrapper->can_respond()) {
 			// need to prepend a dummy IP hdr which is expected and stripped by ->pack()
 			memcpy(buf, &dummy_hdr, sizeof(dummy_hdr));
 			dns_timer_cmd.nonce = ++seq;
 			memcpy(buf + sizeof(dummy_hdr), &dns_timer_cmd, sizeof(dns_timer_cmd));
-			packet = wrapper->pack(string(buf, sizeof(dummy_hdr) + sizeof(dns_timer_cmd)));
-			wrapper->get_dst(dst);
+			packet = d_wrapper->pack(string(buf, sizeof(dummy_hdr) + sizeof(dns_timer_cmd)));
+			d_wrapper->get_dst(dst);
 			sendto(sock, packet.c_str(), packet.size(), 0, dst, dlen);
 			did_send = 1;
-			tx += packet.size();
+			d_tx += packet.size();
 		}
 
 		} while (0);
@@ -272,8 +275,8 @@ int bridge::forward_dns(int sock, int tap)
 			if ((r = recvfrom(sock, buf, sizeof(buf), 0, dst, &dlen)) <= 0)
 				continue;
 
-			packet = string((char *)&th, sizeof(th));
-			packet += wrapper->unpack(string(buf, r), dst);
+			packet = string(reinterpret_cast<char *>(&th), sizeof(th));
+			packet += d_wrapper->unpack(string(buf, r), dst);
 			if (packet.size() > sizeof(th)) {
 				if (writen(tap, packet.c_str(), packet.size()) <= 0)
 					continue;
@@ -282,15 +285,16 @@ int bridge::forward_dns(int sock, int tap)
 			}
 		}
 
-		wrapper->adjust_rcv_queue(0);
+		d_wrapper->adjust_rcv_queue(0);
 
 		// after transmitting X MB of data, give chance to rebind socket
 		// for a new local port
-		if (how == WRAP_DNS_REQUEST && tx > config::max_tx)
+		if (d_how == WRAP_DNS_REQUEST && d_tx > config::max_tx)
 			break;
-
 	}
 
 	return 0;
+}
+
 }
 

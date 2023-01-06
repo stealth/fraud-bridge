@@ -3,6 +3,9 @@
 #include <limits>
 
 
+namespace fraudbridge {
+
+
 // Orig b64 encoding:
 //static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -87,6 +90,8 @@ string &b64_encode(const string &src, string &dst)
 	return dst;
 }
 
+}
+
 #if 0
 #include <iostream>
 
@@ -99,5 +104,10 @@ int main()
 	cout<<b64_decode(s2, s1)<<endl;
 	return 0;
 }
+
+}
+
 #endif
+
+
 

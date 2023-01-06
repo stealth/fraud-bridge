@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer,
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,17 +18,20 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __wrap_h__
-#define __wrap_h__
+#ifndef fraudbridge_wrap_h
+#define fraudbridge_wrap_h
 
 #include <string.h>
-#include <stdint.h>
+#include <cstdint>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <openssl/evp.h>
 #include "net-headers.h"
 #include "dns.h"
+
+
+namespace fraudbridge {
 
 
 enum wrap_t : unsigned int {
@@ -52,22 +56,25 @@ enum wrap_t : unsigned int {
 
 class wrap {
 
-	wrap_t how;
-	bool mod_mss;
-	uint16_t in_mss, out_mss;
+	wrap_t d_how{WRAP_INVALID};
+	bool d_mod_mss{0};
+	uint16_t d_in_mss{1024}, d_out_mss{1024};
+
+	// last ICMP seq and id field seen on rcv, and for ICMP_ECHO (inside) pkts, the next chosen icmp id
+	uint16_t d_last_icmp_seq{0}, d_last_icmp_id{0}, d_next_icmp_seq{0};
 
 	static const uint16_t DIGEST_LEN;
 	static const EVP_MD *md;
 	static const uint8_t ICMP6_ECHO_MAGIC;
 
-	net_headers::iphdr new_iph;
-	int family, saved_errno;
-	std::string err, key, domain;
+	net_headers::iphdr d_new_iph;
+	int d_family{AF_INET}, d_saved_errno{0};
+	std::string d_err{""}, d_key{""}, d_domain{""};
 
-	DNS *dns;
+	DNS *d_dns{nullptr};
 
-	sockaddr_in remote_peer;
-	sockaddr_in6 remote_peer6;
+	sockaddr_in d_remote_peer;
+	sockaddr_in6 d_remote_peer6;
 
 	std::string icmp_request(const std::string &);
 
@@ -96,23 +103,23 @@ class wrap {
 
 	bool is_wrap_request()
 	{
-		return (how & WRAP_REQUEST) == WRAP_REQUEST;
+		return (d_how & WRAP_REQUEST) == WRAP_REQUEST;
 	}
 
 
 	bool is_wrap_reply()
 	{
-		return (how & WRAP_REPLY) == WRAP_REPLY;
+		return (d_how & WRAP_REPLY) == WRAP_REPLY;
 	}
 
 	int build_error(const std::string &s)
 	{
-		err = "wrap::";
-		err += s;
+		d_err = "wrap::";
+		d_err += s;
 		if (errno) {
-			err += ": ";
-			err += strerror(errno);
-			saved_errno = errno;
+			d_err += ": ";
+			d_err += strerror(errno);
+			d_saved_errno = errno;
 		}
 		return -1;
 	}
@@ -122,19 +129,15 @@ public:
 
 	wrap(wrap_t w, int af, const std::string &k, const std::string &d = "")
 	{
-		err = "";
-		how = w;
-		mod_mss = 0;
-		family = af;
-		key = k;
-		dns = NULL;
-		domain = d;
-		saved_errno = 0;
+		d_how = w;
+		d_family = af;
+		d_key = k;
+		d_domain = d;
 
-		memset(&remote_peer, 0, sizeof(remote_peer));
-		remote_peer.sin_family = AF_INET;
-		memset(&remote_peer6, 0, sizeof(remote_peer6));
-		remote_peer6.sin6_family = AF_INET6;
+		memset(&d_remote_peer, 0, sizeof(d_remote_peer));
+		d_remote_peer.sin_family = AF_INET;
+		memset(&d_remote_peer6, 0, sizeof(d_remote_peer6));
+		d_remote_peer6.sin6_family = AF_INET6;
 
 	}
 
@@ -142,15 +145,14 @@ public:
 
 	void set_family(int f)
 	{
-		family = f;
+		d_family = f;
 	}
-
 
 	void set_mss(uint16_t m1, uint16_t m2)
 	{
-		mod_mss = 1;
-		in_mss = m1;	// SYN
-		out_mss = m2;	// SYN+ACK
+		d_mod_mss = 1;
+		d_in_mss = m1;	// SYN
+		d_out_mss = m2;	// SYN+ACK
 	}
 
 	void get_dst(struct sockaddr *);
@@ -167,14 +169,17 @@ public:
 
 	~wrap()
 	{
-		delete dns;
+		delete d_dns;
 	}
 
 	const char *why()
 	{
-		return err.c_str();
+		return d_err.c_str();
 	}
 
 };
 
+}
+
 #endif
+

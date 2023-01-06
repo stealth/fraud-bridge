@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,13 +22,16 @@
  * open-sourced include files
  */
 
-#ifndef __net_headers__
-#define __net_headers__
+#ifndef fraudbriedge_net_headers
+#define fraudbriedge_net_headers
 
 #include <sys/types.h>
 #include <bits/endian.h>
-#include <stdint.h>
+#include <cstdint>
 #include <netinet/in.h>
+
+
+namespace fraudbridge {
 
 
 namespace net_headers {
@@ -311,6 +315,7 @@ struct dns_rr {
 } __attribute__((packed));
 
 
+} // namespace
 
 } // namespace
 

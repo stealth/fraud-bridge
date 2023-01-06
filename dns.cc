@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,6 +35,9 @@
 #include "base64.h"
 #include "dns.h"
 #include "config.h"
+
+
+namespace fraudbridge {
 
 
 using namespace std;
@@ -488,5 +492,7 @@ void DNS::trunc_Q_list(int i)
 bool DNS::can_respond()
 {
 	return last_Qs.size() > 0;
+}
+
 }
 

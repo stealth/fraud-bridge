@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +18,8 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __dns_h__
-#define __dns_h__
+#ifndef fraudbridge_dns_h
+#define fraudbridge_dns_h
 
 #include <stdint.h>
 #include <time.h>
@@ -36,6 +37,7 @@
 #include "net-headers.h"
 
 
+namespace fraudbridge {
 
 int host2qname(const std::string&, std::string&);
 
@@ -119,6 +121,8 @@ public:
 
 	bool can_respond();
 };
+
+}
 
 #endif
 

@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,15 +36,17 @@
 
 
 using namespace std;
+using namespace fraudbridge;
+
 
 void usage(const string &path)
 {
-	cout<<"Usage: "<<path<<" [-R remote ICMP or DNS] [-L local address (0.0.0.0)]\n"
+	cout<<"Usage: "<<path<<" [-R remote IP] [-L local address (0.0.0.0)]\n"
 	    <<"\t[-p local port if DNS tunnel server (53)]\n"
 	    <<"\t<-k HMAC key> [-d tun-device (tun1)] [-D domain if DNS mode]\n"
 	    <<"\t[-i (icmp)] [-I (icmp6)] [-u (DNS)]\n"
 	    <<"\t[-U (DNS on UDP6)] [-v] [-E EDNS0 size (1024), 0 to disable]\n"
-	    <<"\t[-S usleep sec (5000)]\n"
+	    <<"\t[-S usleep sec (5000) for DNS]\n"
 	    <<"\t[-X user to run as (nobody)] [-r chroot (/var/empty)]\n\n";
 
 	exit(1);
@@ -62,6 +65,9 @@ int main(int argc, char **argv)
 	       domain = "", user = "nobody", chroot = "/var/empty";
 	int sock = 0, type = SOCK_RAW, protocol = IPPROTO_ICMP, r = 0, family = AF_INET;
 	wrap_t how = WRAP_INVALID;
+
+
+	cout<<"\nfraud-bridge -- https://github.com/stealth/fraud-bridge\n\n";
 
 	string prog = argv[0];
 
@@ -132,10 +138,8 @@ int main(int argc, char **argv)
 		usage(prog);
 	}
 
-	if (key == "secret") {
-		cerr<<"Specify a HMAC key!\n\n";
-		usage(prog);
-	}
+	if (key == "secret")
+		cerr<<"Warning: using insecure default HMAC key!\n";
 
 	struct addrinfo *ai = NULL;
 

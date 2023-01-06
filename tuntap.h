@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +18,15 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __tuntap_h__
-#define __tuntap_h__
+#ifndef fraudbriedge_tuntap_h
+#define fraudbriedge_tuntap_h
 
 #include <string>
-#include <errno.h>
+#include <cerrno>
 #include <cstring>
+
+
+namespace fraudbridge {
 
 
 class tun_tap {
@@ -66,6 +70,8 @@ public:
 		return err.c_str();
 	}
 };
+
+}
 
 #endif
 

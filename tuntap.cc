@@ -1,7 +1,8 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer
+ *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +31,9 @@
 #include <linux/if.h>
 #include <linux/if_tun.h>
 #include "tuntap.h"
+
+
+namespace fraudbridge {
 
 
 using namespace std;
@@ -66,5 +70,7 @@ int tun_tap::tap_init(const string &dev)
 		return build_error("init::ioctl:");
 
 	return 0;
+}
+
 }
 
