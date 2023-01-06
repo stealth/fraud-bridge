@@ -87,6 +87,10 @@ fraud-bridge will leave stdout open for reporting errors or verbose messages,
 so you need to run it on a screen or redirect output to /dev/null if you need
 it running in background.
 
+Before using any ICMP tunnels, make sure to relax your cable-modem's firewalling rules
+in order to receive the reply packets from your remote peer. *fraud-bridge* works behind
+NAT, but it needs to receive the reply packets at last.
+
 *proudly sponsored by:*
 <p align="center">
 <a href="https://github.com/c-skills/welcome">
