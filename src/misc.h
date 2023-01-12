@@ -34,6 +34,8 @@ unsigned short in_cksum (const unsigned short *, int);
 
 void patch_mss(char *, char *, uint16_t);
 
+uint16_t ntohs_ua(const void *);
+
 
 }
 

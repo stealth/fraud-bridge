@@ -23,7 +23,7 @@ yourself. Its assumed that you use SSH over the tunnel anyways.
 
 *fraud-bridge* also uses `EDNS0` extension headers to put as many bytes into
 the `TXT` reply as possible. In my tests, as it tries to answer any timing
-packets, it produces no logs in a bind9 system logfile. If you change
+packets, it produces no logs in a *bind9* system logfile. If you change
 the `EDNS0` (-E), you need to do it on both ends with the same value.
 (As inside announces maximum UDP payload size to the nameserver and outside
 endpoint calculates the MSS from that what was given with -E.)
@@ -48,7 +48,32 @@ Basically you just do `make` on Linux.
 Run
 ---
 
-After start, it opens a point-to-point tunnel: `1.2.3.4` <-> `1.2.3.5`
+The usage is as follows:
+
+```
+fraud-bridge -- https://github.com/stealth/fraud-bridge
+
+Usage: ./src/fraud-bridge <-k key> [-R IP] [-L IP] [-p port] [-i] [-I] [-u] [-U]
+	[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]
+
+	-k -- HMAC key to protect tunnel packets
+	-R -- IP or IPv6 addr of (outside) peer when started inside
+	-L -- local IP addr to bind to if started outside (can be omitted)
+	-p -- local port to bind to if in DNS mode (default: 53)
+	-i -- use ICMP tunnel
+	-I -- use ICMPv6 tunnel
+	-u -- use DNS tunnel over IP
+	-U -- use DNS tunnel over IPv6
+	-E -- set EDNS0 size (default: 1024)
+	-d -- tunnel device to use (default: tun1)
+	-D -- DNS domain to use when DNS tunneling
+	-S -- usec slowdown for DNS ping (default: 5000)
+	-X -- user to run as (default: nobody)
+	-r -- chroot directory (default: /var/empty)
+	-v -- enable verbose mode
+```
+
+After start, *fraud-bridge* opens a point-to-point tunnel: `1.2.3.4` <-> `1.2.3.5`
 
 Then you need to start `inside.sh` on the inside and `outside.sh` outside.
 
@@ -65,14 +90,15 @@ And on outside end of tunnel (e.g. a server at the internet):
 ```
 (and starting outside.sh)
 
-for a DNS tunnel with a local (127.0.0.1) named running and
+for a DNS tunnel with a local (127.0.0.1) *named* running and
 the outside peer being at 192.168.2.222. As said, outside part of
 tunnel can (and actually needs to) be started beforehand and will just
 listen for the peer to open the tunnel. Example zonefiles are included.
 
 The `-L` parameter at outside can be omitted. In real setups the `-R` parameter
 on inside setups contains the IP or IP6 address of the outside server, or if
-DNS recursion is used, the IP address of the DNS server of your provider.
+DNS recursion is used, the IP address of the DNS server of your provider or
+public recursive DNS resolver.
 
 You can then use `ssh -x -v 1.2.3.5` to get a SSH connection to `192.168.2.222`
 and use the SSH proxy options to setup a web browser environment that runs
@@ -83,9 +109,10 @@ IPv6: `-U`.
 It's also possible to switch tunnel from DNS to ICMP beyond your SSH connection,
 as the TCP state is kept in local and remote kernel and not in the bridge.
 
-fraud-bridge will leave stdout open for reporting errors or verbose messages,
+*fraud-bridge* will leave stdout open for reporting errors or verbose messages,
 so you need to run it on a screen or redirect output to /dev/null if you need
-it running in background.
+it running in background. Keep that in mind since you need to start the inside/outside
+scripts after invoking *fraud-bridge*.
 
 Before using any ICMP tunnels, make sure to relax your cable-modem's firewalling rules
 in order to receive the reply packets from your remote peer. *fraud-bridge* works behind

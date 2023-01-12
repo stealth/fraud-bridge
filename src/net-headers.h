@@ -234,7 +234,7 @@ struct icmp6_hdr {
 
 class dnshdr {
 public:
-	uint16_t id;
+	uint16_t id{0};
 
 #if __BYTE_ORDER == __BIG_ENDIAN
                         /* fields in third byte */
@@ -278,13 +278,12 @@ public:
 		u_int16_t rcode:4;
         } u;
 */
-	uint16_t q_count;
-	uint16_t a_count;
-	uint16_t rra_count;
-	uint16_t ad_count;
+	uint16_t q_count{0};
+	uint16_t a_count{0};
+	uint16_t rra_count{0};
+	uint16_t ad_count{0};
 
-	dnshdr() : id (0),
-	           q_count(0), a_count(0), rra_count(0), ad_count(0)
+	dnshdr()
 	{
 		qr = 0; opcode = 0; aa = 0; tc = 0; rd = 0; ra = 0; ad = 0; cd = 0;
 		rcode = 0; unused = 0;

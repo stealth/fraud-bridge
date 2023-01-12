@@ -60,14 +60,15 @@ class DNS {
 		sockaddr_in6 peer6;
 	};
 
-	int sock, family;
+	int d_sock{-1}, d_family{AF_INET};
 
 	// The domainname used, and its DNS encoded value
-	std::string err, domain, enc_domain;
-	std::map<addrinfo *, socklen_t> ns_map;
+	std::string d_err{""}, d_domain{""}, d_enc_domain{""};
+
+	std::map<addrinfo *, socklen_t> d_ns_map;
 
 	// last N questions received
-	std::list<a_Q> last_Qs;
+	std::list<a_Q> d_last_Qs;
 
 	// a EDNS0 OPTion, to allow for larger DNS packets than 512 Byte
 	struct {
@@ -83,15 +84,18 @@ public:
 
 	~DNS();
 
-	const char *why() { return err.c_str(); };
+	const char *why()
+	{
+		return d_err.c_str();
+	}
 
 	int build_error(const std::string &s)
 	{
-		err = "DNS::";
-		err += s;
+		d_err = "DNS::";
+		d_err += s;
 		if (errno) {
-			err += ": ";
-			err += strerror(errno);
+			d_err += ": ";
+			d_err += strerror(errno);
 		}
 		return -1;
 	}
@@ -99,8 +103,8 @@ public:
 	// Used to check against if tunneling
 	void set_domain(const std::string &d)
 	{
-		domain = d;
-		host2qname(domain, enc_domain);
+		d_domain = d;
+		host2qname(d_domain, d_enc_domain);
 	}
 
 	int query(const std::string&, std::string&, uint16_t qtype = net_headers::dns_type::A);

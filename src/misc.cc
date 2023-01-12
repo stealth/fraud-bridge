@@ -21,7 +21,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string>
-#include <stdint.h>
+#include <cstring>
+#include <cstdint>
+#include <arpa/inet.h>
 #include "net-headers.h"
 
 
@@ -105,6 +107,7 @@ void patch_mss(char *packet, char *end_ptr, uint16_t mss)
 	// We are passed the pointer to TCP options start
 	char *tcp_opt = packet;
 	bool found_mss = 0, end = 0;
+
 	while (tcp_opt < end_ptr && !end) {
 		switch (*tcp_opt) {
 		case TCPOPT_EOL:
@@ -136,8 +139,18 @@ void patch_mss(char *packet, char *end_ptr, uint16_t mss)
 		}
 	}
 
-	if (found_mss)
-		*(uint16_t *)tcp_opt = htons(mss);
+	if (found_mss) {
+		mss = htons(mss);
+		memcpy(tcp_opt, &mss, sizeof(uint16_t));
+	}
+}
+
+
+uint16_t ntohs_ua(const void *vp)
+{
+	uint16_t x = 0;
+	memcpy(&x, vp, sizeof(x));
+	return ntohs(x);
 }
 
 

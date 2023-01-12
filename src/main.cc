@@ -41,16 +41,28 @@ using namespace fraudbridge;
 
 void usage(const string &path)
 {
-	cout<<"Usage: "<<path<<" [-R remote IP] [-L local address (0.0.0.0)]\n"
-	    <<"\t[-p local port if DNS tunnel server (53)]\n"
-	    <<"\t<-k HMAC key> [-d tun-device (tun1)] [-D domain if DNS mode]\n"
-	    <<"\t[-i (icmp)] [-I (icmp6)] [-u (DNS)]\n"
-	    <<"\t[-U (DNS on UDP6)] [-v] [-E EDNS0 size (1024), 0 to disable]\n"
-	    <<"\t[-S usleep sec (5000) for DNS]\n"
-	    <<"\t[-X user to run as (nobody)] [-r chroot (/var/empty)]\n\n";
+	cout<<"Usage: "<<path<<" <-k key> [-R IP] [-L IP] [-p port] [-i] [-I] [-u] [-U]\n"
+	    <<"\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]\n\n"
+
+	    <<"\t-k -- HMAC key to protect tunnel packets\n"
+	    <<"\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
+	    <<"\t-L -- local IP addr to bind to if started outside (can be omitted)\n"
+	    <<"\t-p -- local port to bind to if in DNS mode (default: 53)\n"
+	    <<"\t-i -- use ICMP tunnel\n"
+	    <<"\t-I -- use ICMPv6 tunnel\n"
+	    <<"\t-u -- use DNS tunnel over IP\n"
+	    <<"\t-U -- use DNS tunnel over IPv6\n"
+	    <<"\t-E -- set EDNS0 size (default: "<<config::edns0<<")\n"
+	    <<"\t-d -- tunnel device to use (default: tun1)\n"
+	    <<"\t-D -- DNS domain to use when DNS tunneling\n"
+	    <<"\t-S -- usec slowdown for DNS ping (default: "<<config::useconds<<")\n"
+	    <<"\t-X -- user to run as (default: nobody)\n"
+	    <<"\t-r -- chroot directory (default: /var/empty)\n"
+	    <<"\t-v -- enable verbose mode\n\n";
 
 	exit(1);
 }
+
 
 void die(const char *s)
 {
@@ -74,10 +86,10 @@ int main(int argc, char **argv)
 	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:vE:S:X:r:")) != -1) {
 		switch (r) {
 		case 'S':
-			config::useconds = strtoul(optarg, NULL, 10);
+			config::useconds = strtoul(optarg, nullptr, 10);
 			break;
 		case 'E':
-			config::edns0 = strtoul(optarg, NULL, 10);
+			config::edns0 = strtoul(optarg, nullptr, 10);
 			break;
 		case 'v':
 			config::verbose = 1;
@@ -141,7 +153,7 @@ int main(int argc, char **argv)
 	if (key == "secret")
 		cerr<<"Warning: using insecure default HMAC key!\n";
 
-	struct addrinfo *ai = NULL;
+	struct addrinfo *ai = nullptr;
 
 	if (rhost.size())
 		how = (wrap_t)(how|WRAP_REQUEST);
@@ -161,7 +173,7 @@ int main(int argc, char **argv)
 			rhost = "0.0.0.0";
 	}
 
-	if ((r = getaddrinfo(lhost.c_str(), lport.c_str(), NULL, &ai)) != 0) {
+	if ((r = getaddrinfo(lhost.c_str(), lport.c_str(), nullptr, &ai)) != 0) {
 		cerr<<"getaddrinfo: "<<gai_strerror(r)<<endl;
 		exit(r);
 	}
