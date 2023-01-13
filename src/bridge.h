@@ -22,7 +22,7 @@
 
 #include <string>
 #include <cstring>
-#include <errno.h>
+#include <cerrno>
 #include <netinet/in.h>
 #include "wrap.h"
 
@@ -58,7 +58,7 @@ public:
 	}
 
 	int init(wrap_t w, int, const std::string &, const std::string &, const std::string &,
-	         const std::string &d = "");
+	         const std::string &d = "", uint16_t dns_port = 53);
 
 	int build_error(const std::string &s)
 	{

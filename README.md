@@ -49,13 +49,14 @@ The usage is as follows:
 ```
 fraud-bridge -- https://github.com/stealth/fraud-bridge
 
-Usage: ./src/fraud-bridge <-k key> [-R IP] [-L IP] [-p port] [-i] [-I] [-u] [-U]
+Usage: ./fraud-bridge <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]
 	[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]
 
 	-k -- HMAC key to protect tunnel packets
 	-R -- IP or IPv6 addr of (outside) peer when started inside
 	-L -- local IP addr to bind to if started outside (can be omitted)
-	-p -- local port to bind to if in DNS mode (default: 53)
+	-p -- remote port to use if in DNS mode (default: 53)
+	-P -- local port to use if in DNS mode (outside default: 53)
 	-i -- use ICMP tunnel
 	-I -- use ICMPv6 tunnel
 	-u -- use DNS tunnel over IP
@@ -121,13 +122,24 @@ Performance considerations
 
 Since *fraud-bridge* opens a PtP tunnel, it can strip the IP header off the packets
 that it transmits and synthesize it at each end. So for ICMP tunneling you just have
-an overhead of 8 bytes, which is neglectable. DNS tunneling has still good latency and
+an overhead of 8 (ICMP) + 16 (HMAC) bytes, which is acceptable. DNS tunneling has still good latency and
 bandwidth when doing directly, thanks to MSS clamping. When tunneling indirectly via public
 DNS resolvers, the default values are good enough to have a reasonable session, but of course
 ICMP tunneling is to prefer whenever possible.
 
 By using `ssh -D [0.0.0.0]:1234 1.2.3.5` you can setup a local SOCKS proxy on your machine
 port 1234 (inside) and distribute it via WLAN to your neighborhood for censorship-free web sessions.
+
+You may also setup a local *tor* on the outside box, offering a SOCKS port on `127.0.0.1:9150`
+as you normally do and then using `ssh -L 9150:127.0.0.1:9150 1.2.3.5` to forward this outside
+port to your inside machine, so to exactly mirror the outside *tor* setup locally and distribute it
+as *tor* SOCKS port via WLAN to your users. This way we do not need to implement pluggable transports
+and you can still use *tor* as before. The same also works with *crash* or *psc* sessions or any other
+tunneling mechanism.
+
+The `-S` parameter has a reasonable default value for the DNS timer packets that need to be sent
+to the server in constant interval. Lower values give a better tunnel latency but may overload
+the recursive DNS server and produce more noise.
 
 
 *proudly sponsored by:*

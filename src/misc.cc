@@ -66,9 +66,9 @@ int writen(int fd, const void *buf, size_t len)
 unsigned short in_cksum (const unsigned short *ptr, int nbytes)
 {
 
-  register long sum;		/* assumes long == 32 bits */
+  long sum;		/* assumes long == 32 bits */
   uint16_t oddbyte;
-  register uint16_t answer;	/* assumes u_short == 16 bits */
+  uint16_t answer;	/* assumes u_short == 16 bits */
 
   /*
    * Our algorithm is simple, using a 32-bit accumulator (sum),

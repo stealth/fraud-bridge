@@ -26,9 +26,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <openssl/evp.h>
 #include "net-headers.h"
 #include "dns.h"
+
+extern "C" {
+#include <openssl/evp.h>
+}
 
 
 namespace fraudbridge {
@@ -141,7 +144,7 @@ public:
 
 	}
 
-	int init(const std::string &, const std::string &, const std::string &);
+	int init(const std::string &, const std::string &, const std::string &, uint16_t);
 
 	void set_family(int f)
 	{

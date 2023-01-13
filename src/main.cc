@@ -41,13 +41,14 @@ using namespace fraudbridge;
 
 void usage(const string &path)
 {
-	cout<<"Usage: "<<path<<" <-k key> [-R IP] [-L IP] [-p port] [-i] [-I] [-u] [-U]\n"
+	cout<<"Usage: "<<path<<" <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]\n"
 	    <<"\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]\n\n"
 
 	    <<"\t-k -- HMAC key to protect tunnel packets\n"
 	    <<"\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
 	    <<"\t-L -- local IP addr to bind to if started outside (can be omitted)\n"
-	    <<"\t-p -- local port to bind to if in DNS mode (default: 53)\n"
+	    <<"\t-p -- remote port to use if in DNS mode (default: 53)\n"
+	    <<"\t-P -- local port to use if in DNS mode (outside default: 53)\n"
 	    <<"\t-i -- use ICMP tunnel\n"
 	    <<"\t-I -- use ICMPv6 tunnel\n"
 	    <<"\t-u -- use DNS tunnel over IP\n"
@@ -73,7 +74,7 @@ void die(const char *s)
 
 int main(int argc, char **argv)
 {
-	string rhost = "", lhost = "0.0.0.0", lport = "", dev = "tun1", key = "secret",
+	string rhost = "", lhost = "0.0.0.0", rport = "53", lport = "", dev = "tun1", key = "secret",
 	       domain = "", user = "nobody", chroot = "/var/empty";
 	int sock = 0, type = SOCK_RAW, protocol = IPPROTO_ICMP, r = 0, family = AF_INET;
 	wrap_t how = WRAP_INVALID;
@@ -83,7 +84,7 @@ int main(int argc, char **argv)
 
 	string prog = argv[0];
 
-	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:vE:S:X:r:")) != -1) {
+	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:P:vE:S:X:r:")) != -1) {
 		switch (r) {
 		case 'S':
 			config::useconds = strtoul(optarg, nullptr, 10);
@@ -101,6 +102,9 @@ int main(int argc, char **argv)
 			rhost = optarg;
 			break;
 		case 'p':
+			rport = optarg;
+			break;
+		case 'P':
 			lport = optarg;
 			break;
 		case 'i':
@@ -185,10 +189,10 @@ int main(int argc, char **argv)
 
 	if (how & WRAP_REQUEST) {
 		r = the_bridge.init(how, family, rhost, config::peer2,
-		                    config::peer1, domain);
+		                    config::peer1, domain, strtoul(rport.c_str(), nullptr, 10));
 	} else {
 		r = the_bridge.init(how, family, rhost, config::peer1,
-		                    config::peer2, domain);
+		                    config::peer2, domain, strtoul(rport.c_str(), nullptr, 10));
 	}
 
 	if (r < 0) {

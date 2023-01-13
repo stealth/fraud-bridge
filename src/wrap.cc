@@ -88,12 +88,13 @@ string wrap::icmp_echo(const string &data, uint8_t type)
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)packet + sizeof(icmph) + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<unsigned char *>(packet + sizeof(icmph) + DIGEST_LEN),
 	     psize - sizeof(icmph) - DIGEST_LEN, hmac, nullptr);
 	memcpy(packet + sizeof(icmph), hmac, DIGEST_LEN);
 
 	icmphp = reinterpret_cast<icmphdr *>(packet);
-	icmphp->sum = in_cksum((unsigned short *)packet, psize);
+	icmphp->sum = in_cksum(reinterpret_cast<unsigned short *>(packet), psize);
 
 	result.assign(packet, psize);
 
@@ -116,7 +117,7 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	// first, check MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
-	     (unsigned char *)data.c_str() + (iph->ihl<<2) + sizeof(icmphdr) + DIGEST_LEN,
+	     reinterpret_cast<const unsigned char *>(data.c_str() + (iph->ihl<<2) + sizeof(icmphdr) + DIGEST_LEN),
 	     data.size() - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN, hmac, nullptr);
 	if (memcmp(data.c_str() + (iph->ihl<<2) + sizeof(icmphdr), hmac, DIGEST_LEN) != 0)
 		return result;
@@ -153,14 +154,14 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	}
 
 	tcph->th_sum = 0;
-	tcph->th_sum = in_cksum((unsigned short *)(packet + sizeof(d_new_iph) - sizeof(ph)),
+	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet + sizeof(d_new_iph) - sizeof(ph)),
 	                        sizeof(ph) + ntohs(ph.len));
 
 	memcpy(packet, &d_new_iph, sizeof(d_new_iph));
 
-	iphdr *d_new_iph_ptr = (iphdr *)packet;
+	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet);
 	d_new_iph_ptr->tot_len = htons(psize);
-	d_new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(d_new_iph));
+	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet), sizeof(d_new_iph));
 
 	// no need to set remote peer on tunnel endpoint inside, which is using -R
 	if (is_wrap_reply())
@@ -210,12 +211,13 @@ string wrap::icmp6_echo(const string &data, uint8_t type)
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)packet + sizeof(icmph) + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<unsigned char *>(packet + sizeof(icmph) + DIGEST_LEN),
 	     psize - sizeof(icmph) - DIGEST_LEN, hmac, nullptr);
 	memcpy(packet + sizeof(icmph), hmac, DIGEST_LEN);
 
 	icmphp = reinterpret_cast<icmp6_hdr *>(packet);
-	icmphp->icmp6_cksum = in_cksum((unsigned short *)packet, psize);
+	icmphp->icmp6_cksum = in_cksum(reinterpret_cast<unsigned short *>(packet), psize);
 
 	result.assign(packet, psize);
 	return result;
@@ -251,7 +253,7 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	// first, check MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
-	     (unsigned char *)data.c_str() + sizeof(icmp6_hdr) + DIGEST_LEN,
+	     reinterpret_cast<const unsigned char *>(data.c_str() + sizeof(icmp6_hdr) + DIGEST_LEN),
 	     data.size() - sizeof(icmphdr) - DIGEST_LEN, hmac, nullptr);
 	if (memcmp(data.c_str() + sizeof(icmp6_hdr), hmac, DIGEST_LEN) != 0)
 		return result;
@@ -273,7 +275,7 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	ph.len = htons((uint16_t)data.size() - sizeof(icmp6_hdr) - DIGEST_LEN);
 
 	memcpy(packet + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
-	tcphdr *tcph = (tcphdr *)(packet + sizeof(d_new_iph));
+	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet + sizeof(d_new_iph));
 
 	// patch MSS, which is announced during SYN/SYN|ACK
 	if (tcph->th_flags & TH_SYN) {
@@ -286,14 +288,14 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	}
 
 	tcph->th_sum = 0;
-	tcph->th_sum = in_cksum((unsigned short *)(packet + sizeof(d_new_iph) - sizeof(ph)),
+	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet + sizeof(d_new_iph) - sizeof(ph)),
 	                        sizeof(ph) + ntohs(ph.len));
 
 	memcpy(packet, &d_new_iph, sizeof(d_new_iph));
 
-	iphdr *d_new_iph_ptr = (iphdr *)packet;
+	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet);
 	d_new_iph_ptr->tot_len = htons(psize);
-	d_new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(d_new_iph));
+	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet), sizeof(d_new_iph));
 
 	if (is_wrap_reply())
 		d_remote_peer6 = *from6;
@@ -322,7 +324,8 @@ string wrap::dns_request(const string &data)
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)packet + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<unsigned char *>(packet + DIGEST_LEN),
 	     psize - DIGEST_LEN, hmac, nullptr);
 	memcpy(packet, hmac, DIGEST_LEN);
 
@@ -356,7 +359,8 @@ string wrap::dns_reply(const string &data)
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)packet + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<unsigned char *>(packet + DIGEST_LEN),
 	     psize - DIGEST_LEN, hmac, nullptr);
 	memcpy(packet, hmac, DIGEST_LEN);
 
@@ -394,7 +398,8 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 		return result;
 
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)tmp.c_str() + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<const unsigned char *>(tmp.c_str() + DIGEST_LEN),
 	     tmp.size() - DIGEST_LEN, hmac, nullptr);
 
 	// On HMAC failure, need to remove last saved sender from internal queue
@@ -439,14 +444,14 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 	}
 
 	tcph->th_sum = 0;
-	tcph->th_sum = in_cksum((unsigned short *)(packet + sizeof(d_new_iph) - sizeof(ph)),
+	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet + sizeof(d_new_iph) - sizeof(ph)),
 	                        sizeof(ph) + ntohs(ph.len));
 
 	memcpy(packet, &d_new_iph, sizeof(d_new_iph));
 
-	iphdr *d_new_iph_ptr = (iphdr *)packet;
+	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet);
 	d_new_iph_ptr->tot_len = htons(psize);
-	d_new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(d_new_iph));
+	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet), sizeof(d_new_iph));
 
 
 	result.assign(packet, psize);
@@ -467,7 +472,8 @@ string wrap::de_dns_reply(const string &data)
 		return result;
 
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
-	HMAC(md, d_key.c_str(), (int)d_key.size(), (unsigned char *)tmp.c_str() + DIGEST_LEN,
+	HMAC(md, d_key.c_str(), (int)d_key.size(),
+	     reinterpret_cast<const unsigned char *>(tmp.c_str() + DIGEST_LEN),
 	     tmp.size() - DIGEST_LEN, hmac, nullptr);
 	if (memcmp(tmp.c_str(), hmac, DIGEST_LEN) != 0)
 		return tmp;
@@ -498,14 +504,14 @@ string wrap::de_dns_reply(const string &data)
 	}
 
 	tcph->th_sum = 0;
-	tcph->th_sum = in_cksum((unsigned short *)(packet + sizeof(d_new_iph) - sizeof(ph)),
+	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet + sizeof(d_new_iph) - sizeof(ph)),
 	                        sizeof(ph) + ntohs(ph.len));
 
 	memcpy(packet, &d_new_iph, sizeof(d_new_iph));
 
-	iphdr *d_new_iph_ptr = (iphdr *)packet;
+	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet);
 	d_new_iph_ptr->tot_len = htons(psize);
-	d_new_iph_ptr->check = in_cksum((unsigned short *)packet, sizeof(d_new_iph));
+	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet), sizeof(d_new_iph));
 
 	result.assign(packet, psize);
 	delete [] packet;
@@ -515,7 +521,7 @@ string wrap::de_dns_reply(const string &data)
 
 // remote is the IP4 of the remote tun interface (src of prepended IP hdr, so
 // that replies arrive back on tun), local is the local IP of tun (which is a p-to-p intf)
-int wrap::init(const string &peer, const string &remote, const string &local)
+int wrap::init(const string &peer, const string &remote, const string &local, uint16_t dns_port)
 {
 	in_addr ia1, ia2;
 
@@ -545,9 +551,12 @@ int wrap::init(const string &peer, const string &remote, const string &local)
 
 		d_dns->set_domain(d_domain);
 
+		if (dns_port == 0)
+			dns_port = 53;
+
 		if (d_how & WRAP_REQUEST) {
-			d_remote_peer.sin_port = htons(53);
-			d_remote_peer6.sin6_port = htons(53);
+			d_remote_peer.sin_port = htons(dns_port);
+			d_remote_peer6.sin6_port = htons(dns_port);
 		}
 	}
 
