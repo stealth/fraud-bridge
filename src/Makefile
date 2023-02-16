@@ -1,4 +1,5 @@
-CXX=c++
+CXX?=c++
+CXXSTD?=c++11
 
 SSL=
 #SSL=/opt/ssl/libressl-3.6.1
@@ -6,7 +7,7 @@ SSL=
 INC=-I$(SSL)/include
 LIBS=-lcrypto -Wl,--rpath=$(SSL)/lib64
 
-CXXFLAGS=-Wall -c -O2 -std=c++11 -pedantic $(INC)
+CXXFLAGS=-Wall -c -O2 -std=$(CXXSTD) -pedantic $(INC)
 
 .PHONY: all clean
 
