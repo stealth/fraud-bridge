@@ -23,7 +23,9 @@
 #include <string>
 #include <cstdlib>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -161,18 +163,27 @@ int main(int argc, char **argv)
 
 	if (!config::verbose) {
 		printf("Going background. Messages will be sent to syslog.\n");
-		config::background = 1;
 		if (fork() > 0)
 			exit(1);
+
 		setsid();
-		for (int i = 0; i < 1024; ++i)
+
+		int fd = open("/dev/null", O_RDWR);
+		if (fd < 0)
+			die("open(/dev/null)");
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		for (int i = 3; i < 1024; ++i)
 			close(i);
+
 		struct sigaction sa;
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_handler = SIG_IGN;
 		sigaction(SIGPIPE, &sa, nullptr);
 		sigaction(SIGCHLD, &sa, nullptr);
 
+		config::background = 1;
 		openlog("fraud-bridge", LOG_NOWAIT|LOG_PID, LOG_USER);
 	}
 
