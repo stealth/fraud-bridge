@@ -47,18 +47,6 @@ const uint8_t wrap::ICMP6_ECHO_MAGIC = 0x73;
 
 string wrap::icmp_request(const string &data)
 {
-	return icmp_echo(data, ICMP_ECHO_REQUEST);
-}
-
-
-string wrap::icmp_reply(const string &data)
-{
-	return icmp_echo(data, ICMP_ECHO_REPLY);
-}
-
-
-string wrap::icmp_echo(const string &data, uint8_t type)
-{
 	string result = "";
 	const iphdr *iph = reinterpret_cast<const iphdr *>(data.c_str());
 
@@ -67,9 +55,8 @@ string wrap::icmp_echo(const string &data, uint8_t type)
 
 	const tcphdr *tcph = reinterpret_cast<const tcphdr *>(data.c_str() + (iph->ihl<<2));
 
-	icmphdr icmph, *icmphp = nullptr;
-	memset(&icmph, 0, sizeof(icmph));
-	icmph.type = type;
+	icmphdr icmph = {0}, *icmphp = nullptr;
+	icmph.type = d_icmp_type;
 
 	if (is_wrap_reply()) {
 		icmph.un.echo.sequence = d_last_icmp_seq;
@@ -133,8 +120,7 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	memcpy(packet + sizeof(d_new_iph), data.c_str() + (iph->ihl<<2) + sizeof(icmphdr) + DIGEST_LEN,
 	       data.size() - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN);
 
-	pseudohdr ph;
-	memset(&ph, 0, sizeof(ph));
+	pseudohdr ph = {0};
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
@@ -173,7 +159,7 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 }
 
 
-string wrap::icmp6_echo(const string &data, uint8_t type)
+string wrap::icmp6_request(const string &data)
 {
 	string result = "";
 
@@ -185,9 +171,8 @@ string wrap::icmp6_echo(const string &data, uint8_t type)
 
 	const tcphdr *tcph = reinterpret_cast<const tcphdr *>(data.c_str() + (iph->ihl<<2));
 
-	icmp6_hdr icmph, *icmphp = nullptr;
-	memset(&icmph, 0, sizeof(icmph));
-	icmph.icmp6_type = type;
+	icmp6_hdr icmph = {0}, *icmphp = nullptr;
+	icmph.icmp6_type = d_icmp_type;
 
 	// Need to set a special ID field in reply, as theres AFAIK no good way to
 	// prevent kernel from replying to icmp6 echo requests itself. So we need it to quickly
@@ -221,18 +206,6 @@ string wrap::icmp6_echo(const string &data, uint8_t type)
 
 	result.assign(packet, psize);
 	return result;
-}
-
-
-string wrap::icmp6_request(const string &data)
-{
-	return icmp6_echo(data, ICMP6_ECHO_REQUEST);
-}
-
-
-string wrap::icmp6_reply(const string &data)
-{
-	return icmp6_echo(data, ICMP6_ECHO_REPLY);
 }
 
 
@@ -521,8 +494,10 @@ string wrap::de_dns_reply(const string &data)
 
 // remote is the IP4 of the remote tun interface (src of prepended IP hdr, so
 // that replies arrive back on tun), local is the local IP of tun (which is a p-to-p intf)
-int wrap::init(const string &peer, const string &remote, const string &local, uint16_t dns_port)
+int wrap::init(const string &peer, const string &remote, const string &local, uint16_t dns_port, uint8_t icmp_request_type)
 {
+	d_icmp_type = icmp_request_type;
+
 	in_addr ia1, ia2;
 
 	// always AF_INET, as we use IP4 internally on tun
@@ -569,17 +544,18 @@ string wrap::pack(const string &data)
 	string s = "";
 
 	switch (d_how) {
+
+	// Icmp request and reply packet construction are the same, except the type code that
+	// is set in the icmp hdr. The type code however is set during bridge::init() when the caller
+	// knows whether its the inside or outside part of the bridge and sets type to be ICMP_ECHO_REQUEST or
+	// _REPLY accordingly. So, when being here the d_icmp_type is already set correctly.
 	case WRAP_ICMP_REQUEST:
+	case WRAP_ICMP_REPLY:
 		s = icmp_request(data);
 		break;
-	case WRAP_ICMP_REPLY:
-		s = icmp_reply(data);
-		break;
 	case WRAP_ICMP6_REQUEST:
-		s = icmp6_request(data);
-		break;
 	case WRAP_ICMP6_REPLY:
-		s = icmp6_reply(data);
+		s = icmp6_request(data);
 		break;
 	case WRAP_DNS_REQUEST:
 		s = dns_request(data);

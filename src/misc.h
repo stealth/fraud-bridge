@@ -18,17 +18,22 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef fraudbriedge_misc_h
-#define fraudbriedge_misc_h
+#ifndef fraudbridge_misc_h
+#define fraudbridge_misc_h
 
 #include <cstdint>
+#include <string>
 
 
 namespace fraudbridge {
 
-int writen(int fd, const void *buf, size_t len);
+void log(const std::string &);
 
-int readn(int fd, void *buf, size_t len);
+void die(const std::string &);
+
+int writen(int, const void *, size_t);
+
+int readn(int, void *, size_t);
 
 unsigned short in_cksum (const unsigned short *, int);
 

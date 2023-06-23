@@ -1,7 +1,7 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,8 +40,7 @@ namespace fraudbridge {
 using namespace std;
 
 
-int bridge::init(wrap_t wt, int af, const string &peer, const string &remote,
-	         const string &local, const string &d, uint16_t port)
+int bridge::init(wrap_t wt, int af, const string &peer, const string &remote, const string &local, const string &d, uint16_t port, uint8_t icmp_type)
 {
 	d_family = af;
 	d_how = wt;
@@ -51,7 +50,7 @@ int bridge::init(wrap_t wt, int af, const string &peer, const string &remote,
 		return build_error("init:OOM:");
 
 	int r = 0;
-	if ((r = d_wrapper->init(peer, remote, local, port)) < 0)
+	if ((r = d_wrapper->init(peer, remote, local, port, icmp_type)) < 0)
 		return build_error(string("init->") += d_wrapper->why());
 	return r;
 }
@@ -93,10 +92,10 @@ int bridge::forward_icmp(int sock, int tap)
 	socklen_t dlen = 0;
 
 	if (d_family == AF_INET) {
-		dst = (struct sockaddr *)&dst4;
+		dst = reinterpret_cast<struct sockaddr *>(&dst4);
 		dlen = sizeof(dst4);
 	} else {
-		dst = (struct sockaddr *)&dst6;
+		dst = reinterpret_cast<struct sockaddr *>(&dst6);
 		dlen = sizeof(dst6);
 	}
 
@@ -112,7 +111,7 @@ int bridge::forward_icmp(int sock, int tap)
 			if ((r = read(tap, buf, sizeof(buf))) <= 0)
 				continue;
 
-			th_ptr = (net_headers::tap_header *)buf;
+			th_ptr = reinterpret_cast<net_headers::tap_header *>(buf);
 
 			if (th_ptr->proto != htons(net_headers::ETH_P_IP))
 				continue;
@@ -121,7 +120,7 @@ int bridge::forward_icmp(int sock, int tap)
 			d_wrapper->get_dst(dst);
 
 			if (config::verbose)
-				cout<<"icmp -> "<<packet.size()<<endl;
+				log("icmp -> " + to_string(packet.size()));
 
 			// ignore errors
 			if (packet.size())
@@ -138,7 +137,7 @@ int bridge::forward_icmp(int sock, int tap)
 				if (writen(tap, packet.c_str(), packet.size()) <= 0)
 					continue;
 				if (config::verbose)
-					cout<<"icmp <- "<<packet.size()<<endl;
+					log("icmp <- " + to_string(packet.size()));
 			}
 		}
 
@@ -187,10 +186,10 @@ int bridge::forward_dns(int sock, int tap)
 	socklen_t dlen = 0;
 
 	if (d_family == AF_INET) {
-		dst = (struct sockaddr *)&dst4;
+		dst = reinterpret_cast<struct sockaddr *>(&dst4);
 		dlen = sizeof(dst4);
 	} else {
-		dst = (struct sockaddr *)&dst6;
+		dst = reinterpret_cast<struct sockaddr *>(&dst6);
 		dlen = sizeof(dst6);
 	}
 
@@ -227,7 +226,7 @@ int bridge::forward_dns(int sock, int tap)
 			// Do not take packet off tunnel, if we cannot send it out anyways
 			if (!d_wrapper->can_respond()) {
 				if (config::verbose)
-					cout<<"Empty rcv queue\n";
+					log("Empty rcv queue");
 
 				// we need a break here since we need to read timer packets
 				// from socket if we have empty queue [second FD_ISSET()]
@@ -244,8 +243,9 @@ int bridge::forward_dns(int sock, int tap)
 			packet = d_wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
 			d_wrapper->get_dst(dst);
 
-			if (config::verbose)
-				cout<<"DNS -> "<<packet.size()<<endl;
+			if (config::verbose) {
+				log("DNS -> " + to_string(packet.size()));
+			}
 
 			// ignore errors
 			if (packet.size()) {
@@ -281,7 +281,7 @@ int bridge::forward_dns(int sock, int tap)
 				if (writen(tap, packet.c_str(), packet.size()) <= 0)
 					continue;
 				if (config::verbose)
-					cout<<"DNS <- "<<packet.size()<<endl;
+					log("DNS <- " + to_string(packet.size()));
 			}
 		}
 
