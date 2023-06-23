@@ -1,7 +1,7 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
+ * (C) 2013-2023 by Sebastian Krahmer, sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,15 +17,15 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __config_h__
-#define __config_h__
+#ifndef fraudbridge_config_h
+#define fraudbridge_config_h
 
 #include <stdint.h>
 #include <string>
 
 namespace config {
 
-	extern bool verbose;
+	extern bool verbose, background;
 	extern uint32_t useconds;
 	extern uint16_t edns0;
 	extern uint32_t max_tx;
@@ -33,3 +33,4 @@ namespace config {
 }
 
 #endif
+

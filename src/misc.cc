@@ -17,20 +17,53 @@
  * You should have received a copy of the GNU General Public License
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#define _POSIX_C_SOURCE
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string>
 #include <cstring>
 #include <cstdint>
+#include <cstdlib>
+#include <cerrno>
+#include <syslog.h>
 #include <arpa/inet.h>
+#include "config.h"
 #include "net-headers.h"
 
 
 namespace fraudbridge {
 
 
+using namespace std;
 using namespace net_headers;
+
+
+void log(const string &s)
+{
+	if (config::background) {
+		string msg = s;
+		if (errno) {
+			msg += ": ";
+			msg += strerror(errno);
+		}
+		syslog(LOG_ERR, "%s", msg.c_str());
+	} else {
+		if (errno)
+			fprintf(stderr, "%s: %s\n", s.c_str(), strerror(errno));
+		else
+			printf("%s\n", s.c_str());
+	}
+}
+
+
+void die(const string &s)
+{
+	log(s);
+	exit(errno);
+}
+
 
 int readn(int fd, void *buf, size_t len)
 {

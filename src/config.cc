@@ -22,6 +22,7 @@
 
 namespace config {
 	bool verbose = 0;
+	bool background = 0;
 	uint32_t useconds = 5000;
 	uint16_t edns0 = 1024;
 

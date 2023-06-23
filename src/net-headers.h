@@ -22,8 +22,8 @@
  * open-sourced include files
  */
 
-#ifndef fraudbriedge_net_headers
-#define fraudbriedge_net_headers
+#ifndef fraudbridge_net_headers
+#define fraudbridge_net_headers
 
 #include <sys/types.h>
 #include <bits/endian.h>

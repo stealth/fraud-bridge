@@ -18,6 +18,7 @@
  * along with fraud-bridge.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _POSIX_C_SOURCE
 #include <cstdio>
 #include <string>
 #include <cstdlib>
@@ -26,13 +27,15 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <iostream>
+#include <signal.h>
+#include <syslog.h>
 #include <pwd.h>
 #include <grp.h>
 #include "tuntap.h"
 #include "wrap.h"
 #include "bridge.h"
 #include "config.h"
+#include "misc.h"
 
 
 using namespace std;
@@ -41,35 +44,29 @@ using namespace fraudbridge;
 
 void usage(const string &path)
 {
-	cout<<"Usage: "<<path<<" <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]\n"
-	    <<"\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]\n\n"
+	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]\n"
+	       "\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]\n\n"
 
-	    <<"\t-k -- HMAC key to protect tunnel packets\n"
-	    <<"\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
-	    <<"\t-L -- local IP addr to bind to if started outside (can be omitted)\n"
-	    <<"\t-p -- remote port to use if in DNS mode (default: 53)\n"
-	    <<"\t-P -- local port to use if in DNS mode (outside default: 53)\n"
-	    <<"\t-i -- use ICMP tunnel\n"
-	    <<"\t-I -- use ICMPv6 tunnel\n"
-	    <<"\t-u -- use DNS tunnel over IP\n"
-	    <<"\t-U -- use DNS tunnel over IPv6\n"
-	    <<"\t-E -- set EDNS0 size (default: "<<config::edns0<<")\n"
-	    <<"\t-d -- tunnel device to use (default: tun1)\n"
-	    <<"\t-D -- DNS domain to use when DNS tunneling\n"
-	    <<"\t-S -- usec slowdown for DNS ping (default: "<<config::useconds<<")\n"
-	    <<"\t-X -- user to run as (default: nobody)\n"
-	    <<"\t-r -- chroot directory (default: /var/empty)\n"
-	    <<"\t-v -- enable verbose mode\n\n";
+	       "\t-k -- HMAC key to protect tunnel packets\n"
+	       "\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
+	       "\t-L -- local IP addr to bind to if started outside (can be omitted)\n"
+	       "\t-p -- remote port to use if in DNS mode (default: 53)\n"
+	       "\t-P -- local port to use if in DNS mode (outside default: 53)\n"
+	       "\t-i -- use ICMP tunnel\n"
+	       "\t-I -- use ICMPv6 tunnel\n"
+	       "\t-u -- use DNS tunnel over IP\n"
+	       "\t-U -- use DNS tunnel over IPv6\n"
+	       "\t-E -- set EDNS0 size (default: %d)\n"
+	       "\t-d -- tunnel device to use (default: tun1)\n"
+	       "\t-D -- DNS domain to use when DNS tunneling\n"
+	       "\t-S -- usec slowdown for DNS ping (default: %d)\n"
+	       "\t-X -- user to run as (default: nobody)\n"
+	       "\t-r -- chroot directory (default: /var/empty)\n"
+	       "\t-v -- enable verbose mode\n\n", path.c_str(), config::edns0, config::useconds);
 
 	exit(1);
 }
 
-
-void die(const char *s)
-{
-	cerr<<s<<":"<<strerror(errno)<<endl;
-	exit(errno);
-}
 
 
 int main(int argc, char **argv)
@@ -80,7 +77,7 @@ int main(int argc, char **argv)
 	wrap_t how = WRAP_INVALID;
 
 
-	cout<<"\nfraud-bridge -- https://github.com/stealth/fraud-bridge\n\n";
+	printf("\nfraud-bridge -- https://github.com/stealth/fraud-bridge\n\n");
 
 	string prog = argv[0];
 
@@ -150,12 +147,28 @@ int main(int argc, char **argv)
 		usage(prog);
 
 	if ((how & WRAP_DNS) && !domain.size()) {
-		cerr<<"Requiring domain argument for DNS tunnel.\n\n";
+		fprintf(stderr, "Requiring domain argument for DNS tunnel.\n\n");
 		usage(prog);
 	}
 
 	if (key == "secret")
-		cerr<<"Warning: using insecure default HMAC key!\n";
+		fprintf(stderr, "Warning: using insecure default HMAC key!\n");
+
+	if (!config::verbose) {
+		printf("Going background. Messages will be sent to syslog.\n");
+		config::background = 1;
+		if (fork() > 0)
+			exit(1);
+		setsid();
+		for (int i = 0; i < 1024; ++i)
+			close(i);
+		struct sigaction sa = {0};
+		sa.sa_handler = SIG_IGN;
+		sigaction(SIGPIPE, &sa, nullptr);
+		sigaction(SIGCHLD, &sa, nullptr);
+
+		openlog("fraud-bridge", LOG_NOWAIT|LOG_PID, LOG_USER);
+	}
 
 	struct addrinfo *ai = nullptr;
 
@@ -177,10 +190,8 @@ int main(int argc, char **argv)
 			rhost = "0.0.0.0";
 	}
 
-	if ((r = getaddrinfo(lhost.c_str(), lport.c_str(), nullptr, &ai)) != 0) {
-		cerr<<"getaddrinfo: "<<gai_strerror(r)<<endl;
-		exit(r);
-	}
+	if ((r = getaddrinfo(lhost.c_str(), lport.c_str(), nullptr, &ai)) != 0)
+		die("getaddrinfo: " + string(gai_strerror(r)));
 
 	tun_tap the_tun;
 	the_tun.tun_init(dev);
@@ -195,17 +206,15 @@ int main(int argc, char **argv)
 		                    config::peer2, domain, strtoul(rport.c_str(), nullptr, 10));
 	}
 
-	if (r < 0) {
-		cerr<<"Error: "<<the_bridge.why()<<endl;
-		exit(1);
-	}
+	if (r < 0)
+		die("Error: " + the_bridge.why());
 
 	passwd *pw = getpwnam(user.c_str());
 	if (!pw)
 		die("getpwnam");
 
 	if (::chroot(chroot.c_str()) < 0)
-		cerr<<"Warning: Not possible to chroot!\n";
+		log("Warning: Not possible to chroot!");
 	chdir("/");
 
 	if (setgid(pw->pw_gid) < 0)
@@ -231,10 +240,11 @@ int main(int argc, char **argv)
 
 		if (config::verbose) {
 			if (r < 0)
-				cerr<<"Error: "<<the_bridge.why()<<endl;
+				log("Error: " + the_bridge.why());
 			else
-				cout<<"Rebinding ...\n";
+				log("Rebinding ...\n");
 		}
+		errno = 0;
 	}
 
 	return -1;
