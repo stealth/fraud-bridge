@@ -66,6 +66,8 @@ class wrap {
 	// last ICMP seq and id field seen on rcv, and for ICMP_ECHO (inside) pkts, the next chosen icmp id
 	uint16_t d_last_icmp_seq{0}, d_last_icmp_id{0}, d_next_icmp_seq{0};
 
+	uint8_t d_icmp_type{net_headers::ICMP_ECHO_REQUEST};
+
 	static const uint16_t DIGEST_LEN;
 	static const EVP_MD *md;
 	static const uint8_t ICMP6_ECHO_MAGIC;
@@ -81,17 +83,9 @@ class wrap {
 
 	std::string icmp_request(const std::string &);
 
-	std::string icmp_reply(const std::string &);
-
-	std::string icmp_echo(const std::string &, uint8_t);
-
 	std::string de_icmp(const std::string &, const sockaddr_in *);
 
 	std::string icmp6_request(const std::string &);
-
-	std::string icmp6_reply(const std::string &);
-
-	std::string icmp6_echo(const std::string &, uint8_t);
 
 	std::string de_icmp6(const std::string &, const sockaddr_in6 *);
 
@@ -144,7 +138,7 @@ public:
 
 	}
 
-	int init(const std::string &, const std::string &, const std::string &, uint16_t);
+	int init(const std::string &, const std::string &, const std::string &, uint16_t, uint8_t);
 
 	void set_family(int f)
 	{

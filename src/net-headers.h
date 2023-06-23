@@ -69,9 +69,11 @@ enum eth_types_t : uint16_t {
 enum icmp_type : uint8_t {
 	ICMP_ECHO_REPLY		=	0,
 	ICMP_ECHO_REQUEST	=	8,
+	ICMP_TIMESTAMP		=	13,
+	ICMP_TIMESTAMP_REPLY	=	14,
 
 	ICMP6_ECHO_REQUEST	= 128,
-	ICMP6_ECHO_REPLY	= 129
+	ICMP6_ECHO_REPLY	= 129,
 };
 
 

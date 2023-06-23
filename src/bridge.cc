@@ -40,8 +40,7 @@ namespace fraudbridge {
 using namespace std;
 
 
-int bridge::init(wrap_t wt, int af, const string &peer, const string &remote,
-	         const string &local, const string &d, uint16_t port)
+int bridge::init(wrap_t wt, int af, const string &peer, const string &remote, const string &local, const string &d, uint16_t port, uint8_t icmp_type)
 {
 	d_family = af;
 	d_how = wt;
@@ -51,7 +50,7 @@ int bridge::init(wrap_t wt, int af, const string &peer, const string &remote,
 		return build_error("init:OOM:");
 
 	int r = 0;
-	if ((r = d_wrapper->init(peer, remote, local, port)) < 0)
+	if ((r = d_wrapper->init(peer, remote, local, port, icmp_type)) < 0)
 		return build_error(string("init->") += d_wrapper->why());
 	return r;
 }

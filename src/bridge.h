@@ -57,8 +57,7 @@ public:
 		delete d_wrapper;
 	}
 
-	int init(wrap_t w, int, const std::string &, const std::string &, const std::string &,
-	         const std::string &d = "", uint16_t dns_port = 53);
+	int init(wrap_t w, int, const std::string &, const std::string &, const std::string &, const std::string &, uint16_t, uint8_t);
 
 	int build_error(const std::string &s)
 	{

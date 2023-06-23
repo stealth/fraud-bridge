@@ -31,6 +31,7 @@
 #include <syslog.h>
 #include <pwd.h>
 #include <grp.h>
+#include "net-headers.h"
 #include "tuntap.h"
 #include "wrap.h"
 #include "bridge.h"
@@ -45,7 +46,7 @@ using namespace fraudbridge;
 void usage(const string &path)
 {
 	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]\n"
-	       "\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]\n\n"
+	       "\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-t type] [-v]\n\n"
 
 	       "\t-k -- HMAC key to protect tunnel packets\n"
 	       "\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
@@ -62,6 +63,7 @@ void usage(const string &path)
 	       "\t-S -- usec slowdown for DNS ping (default: %d)\n"
 	       "\t-X -- user to run as (default: nobody)\n"
 	       "\t-r -- chroot directory (default: /var/empty)\n"
+	       "\t-t -- set ICMP/ICMP6 type (experimental, do not use)\n"
 	       "\t-v -- enable verbose mode\n\n", path.c_str(), config::edns0, config::useconds);
 
 	exit(1);
@@ -81,7 +83,7 @@ int main(int argc, char **argv)
 
 	string prog = argv[0];
 
-	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:P:vE:S:X:r:")) != -1) {
+	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:P:vE:S:X:r:t:")) != -1) {
 		switch (r) {
 		case 'S':
 			config::useconds = strtoul(optarg, nullptr, 10);
@@ -138,6 +140,9 @@ int main(int argc, char **argv)
 		case 'r':
 			chroot = optarg;
 			break;
+		case 't':
+			config::icmp_type = (uint8_t)strtoul(optarg, nullptr, 10);
+			break;
 		default:
 			usage("fraud-bridge");
 		}
@@ -162,7 +167,8 @@ int main(int argc, char **argv)
 		setsid();
 		for (int i = 0; i < 1024; ++i)
 			close(i);
-		struct sigaction sa = {0};
+		struct sigaction sa;
+		memset(&sa, 0, sizeof(sa));
 		sa.sa_handler = SIG_IGN;
 		sigaction(SIGPIPE, &sa, nullptr);
 		sigaction(SIGCHLD, &sa, nullptr);
@@ -199,11 +205,28 @@ int main(int argc, char **argv)
 	bridge the_bridge(key);
 
 	if (how & WRAP_REQUEST) {
+		// We do not check for DNS/ICMP. If DNS wrap is used, icmp type will be ignored.
+		// icmp type unset?
+		if (config::icmp_type == 0) {
+			if (family == AF_INET6)
+				config::icmp_type = net_headers::ICMP6_ECHO_REQUEST;
+			else
+				config::icmp_type = net_headers::ICMP_ECHO_REQUEST;
+		}
 		r = the_bridge.init(how, family, rhost, config::peer2,
-		                    config::peer1, domain, strtoul(rport.c_str(), nullptr, 10));
+		                    config::peer1, domain, strtoul(rport.c_str(), nullptr, 10), config::icmp_type);
+
+	// WRAP_REPLY
 	} else {
+		// see above
+		if (config::icmp_type == 0) {
+			if (family == AF_INET6)
+				config::icmp_type = net_headers::ICMP6_ECHO_REPLY;
+			else
+				config::icmp_type = net_headers::ICMP_ECHO_REPLY;
+		}
 		r = the_bridge.init(how, family, rhost, config::peer1,
-		                    config::peer2, domain, strtoul(rport.c_str(), nullptr, 10));
+		                    config::peer2, domain, strtoul(rport.c_str(), nullptr, 10), config::icmp_type);
 	}
 
 	if (r < 0)

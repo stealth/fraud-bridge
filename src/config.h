@@ -29,6 +29,7 @@ namespace config {
 	extern uint32_t useconds;
 	extern uint16_t edns0;
 	extern uint32_t max_tx;
+	extern uint8_t icmp_type;
 	extern std::string peer1, peer2;
 }
 

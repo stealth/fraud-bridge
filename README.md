@@ -108,10 +108,11 @@ IPv6: `-U`.
 It's also possible to switch tunnel from DNS to ICMP beyond your SSH connection,
 as the TCP state is kept in local and remote kernel and not in the bridge.
 
-*fraud-bridge* will leave `stdout` open for reporting errors or verbose messages,
+In verbose mode, *fraud-bridge* will leave `stdout` open for reporting errors or messages,
 so you need to run it on a screen or redirect output to `/dev/null` if you need
-it running in background. Keep that in mind since you need to start the inside/outside
-scripts after invoking *fraud-bridge*.
+it running in (verbose) background. Keep that in mind since you need to start the inside/outside
+scripts after invoking *fraud-bridge*. If not using `-v`, it goes to background and logs
+errors to syslog.
 
 Before using any ICMP tunnels, make sure to relax your cable-modem's firewalling rules
 in order to receive the reply packets from your remote peer. *fraud-bridge* works behind
