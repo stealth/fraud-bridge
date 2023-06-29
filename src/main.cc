@@ -184,7 +184,7 @@ int main(int argc, char **argv)
 		sigaction(SIGCHLD, &sa, nullptr);
 
 		config::background = 1;
-		openlog("fraud-bridge", LOG_NOWAIT|LOG_PID, LOG_USER);
+		openlog("fraud-bridge", LOG_NOWAIT|LOG_PID|LOG_NDELAY, LOG_USER);
 	}
 
 	struct addrinfo *ai = nullptr;
@@ -267,6 +267,8 @@ int main(int argc, char **argv)
 		// re-binding is only for WRAP_DNS_REQUEST to unprived port
 		if (setuid(pw->pw_uid) < 0)
 			die("setuid");
+
+		errno = 0;
 
 		// ignore error
 		r = the_bridge.forward(sock, the_tun.fd());
