@@ -553,9 +553,9 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 {
 	string result = "";
 
-	const iphdr *iph = reinterpret_cast<const iphdr *>(data.c_str());
+	uint32_t mac_id = 0;
 
-	if (data.size() < sizeof(ntp4hdr) + sizeof(ntp4exthdr) + sizeof(tcphdr) + (iph->ihl<<2) + sizeof(uint32_t) + DIGEST_LEN ||
+	if (data.size() < sizeof(ntp4hdr) + sizeof(ntp4exthdr) + sizeof(tcphdr) + sizeof(mac_id) + DIGEST_LEN ||
 	    data.size() > 4096)
 		return result;
 
@@ -563,35 +563,36 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 	// first, check MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
-	     reinterpret_cast<const unsigned char *>(data.c_str() + (iph->ihl<<2)),
-	     data.size() - (iph->ihl<<2) - DIGEST_LEN, hmac, nullptr);
+	     reinterpret_cast<const unsigned char *>(data.c_str()), data.size() - sizeof(mac_id) - DIGEST_LEN, hmac, nullptr);
 
 #if 0
 	if (memcmp(data.c_str() + data.size() - DIGEST_LEN, hmac, DIGEST_LEN) != 0)
 		return result;
 #endif
 
-	const ntp4hdr *ntph = reinterpret_cast<const ntp4hdr *>(data.c_str() + (iph->ihl<<2));
+	const ntp4hdr *ntph = reinterpret_cast<const ntp4hdr *>(data.c_str());
 	const ntp4exthdr *ntpeh = reinterpret_cast<const ntp4exthdr *>(ntph + 1);
 
-	uint16_t mac_id = 0;
+
 	uint16_t psize = ntohs(ntpeh->length);
 	if (psize > 4096 || psize < sizeof(tcphdr))
 		return result;
-	if (psize != (data.size() - sizeof(ntp4hdr) - sizeof(ntp4exthdr) - sizeof(mac_id) - DIGEST_LEN - (iph->ihl<<2)))
+
+	// but psize w/o alignment, so no exact match
+	if (psize > (data.size() - sizeof(ntp4hdr) - sizeof(ntp4exthdr) - sizeof(mac_id) - DIGEST_LEN))
 		return result;
 	psize += sizeof(d_new_iph);
 	unique_ptr<char[]> packet(new (nothrow) char[psize]);
 	if (!packet.get())
 		return result;
 
-	memcpy(packet.get() + sizeof(d_new_iph), data.c_str() + (iph->ihl<<2) + sizeof(ntp4hdr) + sizeof(ntp4exthdr), psize);
+	memcpy(packet.get() + sizeof(d_new_iph), data.c_str() + sizeof(ntp4hdr) + sizeof(ntp4exthdr), psize - sizeof(d_new_iph));
 
 	pseudohdr ph = {0};
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons((uint16_t)psize - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN);
+	ph.len = htons(psize);
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));

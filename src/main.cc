@@ -210,6 +210,10 @@ int main(int argc, char **argv)
 
 	if (how == WRAP_DNS_REPLY && !lport.size())
 		lport = "53";
+	if (how == WRAP_NTP4_REPLY && !lport.size())
+		lport = "123";
+	if (how == WRAP_NTP4_REQUEST && rport == "53")
+		rport = "123";
 
 	if (family == AF_INET6) {
 		if (lhost == "0.0.0.0")
