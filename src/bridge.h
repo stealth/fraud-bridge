@@ -42,11 +42,10 @@ class bridge {
 
 	uint32_t d_tx{0};
 
-	int forward_icmp(int, int);
+	// icmp, icmp6, ntp4
+	int forward_simple(int, int);
 
 	int forward_dns(int, int);
-
-	int forward_ntp4(int, int);
 
 public:
 
