@@ -1,7 +1,7 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013-2023 by Sebastian Krahmer
+ * (C) 2013-2025 by Sebastian Krahmer
  *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
@@ -227,7 +227,7 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
 	     reinterpret_cast<const unsigned char *>(data.c_str() + sizeof(icmp6_hdr) + DIGEST_LEN),
-	     data.size() - sizeof(icmphdr) - DIGEST_LEN, hmac, nullptr);
+	     data.size() - sizeof(icmp6_hdr) - DIGEST_LEN, hmac, nullptr);
 	if (memcmp(data.c_str() + sizeof(icmp6_hdr), hmac, DIGEST_LEN) != 0)
 		return result;
 
@@ -559,16 +559,13 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 	    data.size() > 4096)
 		return result;
 
-// XXX pad
 	// first, check MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
 	     reinterpret_cast<const unsigned char *>(data.c_str()), data.size() - sizeof(mac_id) - DIGEST_LEN, hmac, nullptr);
 
-#if 0
 	if (memcmp(data.c_str() + data.size() - DIGEST_LEN, hmac, DIGEST_LEN) != 0)
 		return result;
-#endif
 
 	const ntp4hdr *ntph = reinterpret_cast<const ntp4hdr *>(data.c_str());
 	const ntp4exthdr *ntpeh = reinterpret_cast<const ntp4exthdr *>(ntph + 1);

@@ -1,7 +1,7 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013-2023 by Sebastian Krahmer,
+ * (C) 2013-2025 by Sebastian Krahmer,
  *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
