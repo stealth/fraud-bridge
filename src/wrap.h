@@ -53,7 +53,11 @@ enum wrap_t : unsigned int {
 
 	WRAP_DNS		= 0x4000,
 	WRAP_DNS_REQUEST	= WRAP_DNS|WRAP_REQUEST,
-	WRAP_DNS_REPLY		= WRAP_DNS|WRAP_REPLY
+	WRAP_DNS_REPLY		= WRAP_DNS|WRAP_REPLY,
+
+	WRAP_NTP4		= 0x8000,
+	WRAP_NTP4_REQUEST	= WRAP_NTP4|WRAP_REQUEST,
+	WRAP_NTP4_REPLY		= WRAP_NTP4|WRAP_REPLY,
 };
 
 
@@ -97,6 +101,9 @@ class wrap {
 
 	std::string de_dns_reply(const std::string &);
 
+	std::string ntp4(const std::string &);
+
+	std::string de_ntp4(const std::string &, const sockaddr *);
 
 	bool is_wrap_request()
 	{

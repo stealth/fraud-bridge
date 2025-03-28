@@ -62,6 +62,8 @@ int bridge::forward(int sock, int tap)
 		return forward_dns(sock, tap);
 	else if ((d_how & WRAP_ICMP) || (d_how & WRAP_ICMP6))
 		return forward_icmp(sock, tap);
+	else if (d_how & WRAP_NTP4)
+		return forward_ntp4(sock, tap);
 
 	return build_error("forward: Invalid wrapper specification.");
 }
@@ -145,6 +147,84 @@ int bridge::forward_icmp(int sock, int tap)
 
 	return 0;
 }
+
+
+int bridge::forward_ntp4(int sock, int tap)
+{
+	if (!d_wrapper)
+		return build_error("forward_ntp4: No wrapper defined");
+
+	uint16_t in_mss = 1024, out_mss = 1024;
+	d_wrapper->set_mss(in_mss, out_mss);
+
+	int max = sock > tap ? sock : tap;
+	int r = -1;
+	fd_set rset;
+
+	char buf[4096] = {0};
+	string packet = "";
+	net_headers::tap_header *th_ptr = nullptr, th = {0, htons(net_headers::ETH_P_IP)};
+
+	sockaddr_in dst4;
+	sockaddr_in6 dst6;
+	sockaddr *dst = nullptr;
+	socklen_t dlen = 0;
+
+	if (d_family == AF_INET) {
+		dst = reinterpret_cast<struct sockaddr *>(&dst4);
+		dlen = sizeof(dst4);
+	} else {
+		dst = reinterpret_cast<struct sockaddr *>(&dst6);
+		dlen = sizeof(dst6);
+	}
+
+	for (;;) {
+		FD_ZERO(&rset);
+		FD_SET(sock, &rset);
+		FD_SET(tap, &rset);
+
+		if ((r = select(max + 1, &rset, nullptr, nullptr, nullptr)) < 0)
+			continue;
+
+		if (FD_ISSET(tap, &rset)) {
+			if ((r = read(tap, buf, sizeof(buf))) <= 0)
+				continue;
+
+			th_ptr = reinterpret_cast<net_headers::tap_header *>(buf);
+
+			if (th_ptr->proto != htons(net_headers::ETH_P_IP))
+				continue;
+
+			packet = d_wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
+			d_wrapper->get_dst(dst);
+
+			if (config::verbose)
+				log("ntp4 -> " + to_string(packet.size()));
+
+			// ignore errors
+			if (packet.size())
+				sendto(sock, packet.c_str(), packet.size(), 0, dst, dlen);
+		}
+
+		if (FD_ISSET(sock, &rset)) {
+			if ((r = recvfrom(sock, buf, sizeof(buf), 0, dst, &dlen)) <= 0)
+				continue;
+
+			packet = string(reinterpret_cast<char *>(&th), sizeof(th));
+			packet += d_wrapper->unpack(string(buf, r), dst);
+			if (packet.size() > sizeof(th)) {
+				if (writen(tap, packet.c_str(), packet.size()) <= 0)
+					continue;
+				if (config::verbose)
+					log("ntp4 <- " + to_string(packet.size()));
+			}
+		}
+
+	}
+
+	return 0;
+}
+
 
 
 int bridge::forward_dns(int sock, int tap)

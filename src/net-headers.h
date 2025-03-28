@@ -1,7 +1,7 @@
 /*
  * This file is part of fraud-bridge.
  *
- * (C) 2013-2023 by Sebastian Krahmer
+ * (C) 2013-2025 by Sebastian Krahmer
  *                  sebastian [dot] krahmer [at] gmail [dot] com
  *
  * fraud-bridge is free software: you can redistribute it and/or modify
@@ -43,21 +43,21 @@ struct tap_header {
 
 
 struct icmphdr {
-   	uint8_t type;
-        uint8_t code;
-        uint16_t sum;
+	uint8_t type;
+	uint8_t code;
+	uint16_t sum;
 
 	union {
 		struct {
-                   	uint16_t id;
-                        uint16_t sequence;
-                } echo;
-	        uint32_t gateway;
+			uint16_t id;
+			uint16_t sequence;
+		} echo;
+		uint32_t gateway;
 		struct {
-                   	uint16_t unused;
-                        uint16_t mtu;
-                } frag;
-        } un;
+			uint16_t unused;
+			uint16_t mtu;
+		} frag;
+	} un;
 };
 
 
@@ -79,10 +79,10 @@ enum icmp_type : uint8_t {
 
 class udphdr {
 public:
-   	uint16_t	source;
-        uint16_t	dest;
-        uint16_t	len;
-        uint16_t	check;
+	uint16_t source;
+	uint16_t dest;
+	uint16_t len;
+	uint16_t check;
 
 	udphdr() : source(0), dest(0), len(0), check(0) { }
 };
@@ -93,11 +93,11 @@ public:
  *  and TCP packets.
  */
 struct pseudohdr {
-   	uint32_t saddr;
-        uint32_t daddr;
-        uint8_t zero;
-        uint8_t proto;
-        uint16_t len;
+	uint32_t saddr;
+	uint32_t daddr;
+	uint8_t zero;
+	uint8_t proto;
+	uint16_t len;
 };
 
 
@@ -122,22 +122,22 @@ enum tcp_flags_t : uint8_t {
 class tcphdr
 {
 public:
-    	uint16_t th_sport;
-        uint16_t th_dport;
-        uint32_t th_seq;
-        uint32_t th_ack;
+	uint16_t th_sport;
+	uint16_t th_dport;
+	uint32_t th_seq;
+	uint32_t th_ack;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-    	uint8_t th_x2:4;		// unused
-        uint8_t th_off:4;
+	uint8_t th_x2:4;		// unused
+	uint8_t th_off:4;
 #elif __BYTE_ORDER == __BIG_ENDIAN
-    	uint8_t th_off:4;
-        uint8_t th_x2:4;
+	uint8_t th_off:4;
+	uint8_t th_x2:4;
 #endif
-    	uint8_t th_flags;
+	uint8_t th_flags;
 
-    	uint16_t th_win;
-        uint16_t th_sum;
-        uint16_t th_urg;
+	uint16_t th_win;
+	uint16_t th_sum;
+	uint16_t th_urg;
 };
 
 
@@ -163,23 +163,23 @@ class iphdr
 {
 public:
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-    	uint32_t ihl:4;
-        uint32_t version:4;
+	uint32_t ihl:4;
+	uint32_t version:4;
 #elif __BYTE_ORDER == __BIG_ENDIAN
-    	uint32_t version:4;
-        uint32_t ihl:4;
+	uint32_t version:4;
+	uint32_t ihl:4;
 #else
 # error	"Please fix <bits/endian.h>"
 #endif
-    	uint8_t tos;
-        uint16_t tot_len;
-        uint16_t id;
-        uint16_t frag_off;
-        uint8_t ttl;
-        uint8_t protocol;
-        uint16_t check;
-        uint32_t saddr;
-        uint32_t daddr;
+	uint8_t tos;
+	uint16_t tot_len;
+	uint16_t id;
+	uint16_t frag_off;
+	uint8_t ttl;
+	uint8_t protocol;
+	uint16_t check;
+	uint32_t saddr;
+	uint32_t daddr;
 
 	iphdr() : ihl(5), version(4), tos(0), tot_len(0), id(0), frag_off(0),
 	          ttl(64), protocol(IPPROTO_IP), check(0), saddr(0), daddr(0) { }
@@ -196,22 +196,22 @@ enum ip_flags_t : uint16_t {
 
 struct ip6_hdr {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	uint8_t                priority:4,
-                                version:4;
+	uint8_t		priority:4,
+	                version:4;
 #elif __BYTE_ORDER == __BIG_ENDIAN
-	uint8_t                version:4,
-                	        priority:4;
+	uint8_t		version:4,
+	                priority:4;
 #else
 #error  "Please fix <asm/byteorder.h>"
 #endif
-	uint8_t                flow_lbl[3];
+	uint8_t		flow_lbl[3];
 
-	uint16_t               payload_len;
-	uint8_t                nexthdr;
-	uint8_t                hop_limit;
+	uint16_t	payload_len;
+	uint8_t		nexthdr;
+	uint8_t		hop_limit;
 
-        struct  in6_addr        saddr;
-        struct  in6_addr        daddr;
+        struct in6_addr saddr;
+        struct in6_addr daddr;
 };
 
 
@@ -239,32 +239,32 @@ public:
 	uint16_t id{0};
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-                        /* fields in third byte */
-        uint16_t        qr: 1;          /* response flag */
-        uint16_t        opcode: 4;      /* purpose of message */
-        uint16_t        aa: 1;          /* authoritive answer */
-        uint16_t        tc: 1;          /* truncated message */
-        uint16_t        rd: 1;          /* recursion desired */
-                        /* fields in fourth byte */
-        uint16_t        ra: 1;          /* recursion available */
-        uint16_t        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
-        uint16_t        ad: 1;          /* authentic data from named */
-        uint16_t        cd: 1;          /* checking disabled by resolver */
-        uint16_t        rcode :4;       /* response code */
+				/* fields in third byte */
+	uint16_t qr:1;		/* response flag */
+	uint16_t opcode:4;	/* purpose of message */
+	uint16_t aa:1;		/* authoritive answer */
+	uint16_t tc:1;		/* truncated message */
+	uint16_t rd:1;		/* recursion desired */
+				/* fields in fourth byte */
+	uint16_t ra:1;		/* recursion available */
+	uint16_t unused:1;	/* unused bits (MBZ as of 4.9.3a3) */
+	uint16_t ad:1;		/* authentic data from named */
+	uint16_t cd:1;		/* checking disabled by resolver */
+	uint16_t rcode:4;	/* response code */
 #endif
-#if __BYTE_ORDER == __LITTLE_ENDIAN || __BYTE_ORDER == __PDP_ENDIAN
-                        /* fields in third byte */
-        uint16_t        rd :1;          /* recursion desired */
-        uint16_t        tc :1;          /* truncated message */
-        uint16_t        aa :1;          /* authoritive answer */
-        uint16_t        opcode :4;      /* purpose of message */
-        uint16_t        qr :1;          /* response flag */
-                        /* fields in fourth byte */
-        uint16_t        rcode :4;       /* response code */
-        uint16_t        cd: 1;          /* checking disabled by resolver */
-        uint16_t        ad: 1;          /* authentic data from named */
-        uint16_t        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
-        uint16_t        ra :1;          /* recursion available */
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+				/* fields in third byte */
+	uint16_t rd:1;		/* recursion desired */
+	uint16_t tc:1;		/* truncated message */
+	uint16_t aa:1;		/* authoritive answer */
+	uint16_t opcode:4;	/* purpose of message */
+	uint16_t qr:1;		/* response flag */
+				/* fields in fourth byte */
+	uint16_t rcode:4;	/* response code */
+	uint16_t cd:1;		/* checking disabled by resolver */
+	uint16_t ad:1;		/* authentic data from named */
+	uint16_t unused:1;	/* unused bits (MBZ as of 4.9.3a3) */
+	uint16_t ra:1;		/* recursion available */
 #endif
 /*
         union {
@@ -313,6 +313,68 @@ struct dns_rr {
 	uint32_t ttl;
 	uint16_t len;
 	char data[4];
+} __attribute__((packed));
+
+
+enum ntp4_flags_t : uint8_t {
+	LI_NOWARN		=	0,
+	LI_UNKNOWN		=	3,
+	VERSION4		=	4,
+
+	MODE_RESERVED		=	0,
+	MODE_SYM_ACTIVE		=	1,
+	MODE_SYM_PASSV		=	2,
+	MODE_CLIENT		=	3,
+	MODE_SERVER		=	4,
+	MODE_BROADCAST		=	5,
+	MODE_CONTROL		=	6,
+	MODE_PRIVATE		=	7,
+
+	STRATUM_UNSPEC		=	0,
+	STRATUM_PRIMARY		=	1,
+	STRATUM_SECONDARY	=	2,
+	STRATUM_UNSYNCED	=	16,
+	STRATUM_RESERVED	=	17
+};
+
+
+class ntp4hdr {
+public:
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	uint8_t mode:3;
+	uint8_t version:3;
+	uint8_t LI:2;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+	uint8_t LI:2;
+	uint8_t version:3;
+	uint8_t mode:3;
+#else
+# error	"Please fix <bits/endian.h>"
+#endif
+	uint8_t stratum{0};
+	uint8_t poll{0};
+	uint8_t precision{0};
+	uint32_t rdelay{0};
+	uint32_t rdispersion{0};
+	uint32_t rid{0};
+	uint64_t ref_timestamp{0};
+	uint64_t origin_timestamp{0};
+	uint64_t rx_timestamp{0};
+	uint64_t tx_timestamp{0};
+
+	ntp4hdr()
+	{
+		mode = 0;
+		version = VERSION4;
+		stratum = STRATUM_UNSYNCED;
+		LI = LI_NOWARN;
+	}
+};
+
+
+class ntp4exthdr {
+public:
+	uint16_t type{0}, length{0};
 } __attribute__((packed));
 
 

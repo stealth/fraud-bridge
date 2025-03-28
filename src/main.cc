@@ -53,12 +53,14 @@ void usage(const string &path)
 	       "\t-k -- HMAC key to protect tunnel packets\n"
 	       "\t-R -- IP or IPv6 addr of (outside) peer when started inside\n"
 	       "\t-L -- local IP addr to bind to if started outside (can be omitted)\n"
-	       "\t-p -- remote port to use if in DNS mode (default: 53)\n"
-	       "\t-P -- local port to use if in DNS mode (outside default: 53)\n"
+	       "\t-p -- remote port when in DNS/NTP mode (default: 53/123)\n"
+	       "\t-P -- local port when in DNS/NTP mode (outside default: 53/123)\n"
 	       "\t-i -- use ICMP tunnel\n"
 	       "\t-I -- use ICMPv6 tunnel\n"
 	       "\t-u -- use DNS tunnel over IP\n"
 	       "\t-U -- use DNS tunnel over IPv6\n"
+	       "\t-n -- use NTP4 tunnel over IP\n"
+	       "\t-N -- use NTP4 tunnel over IPv6\n"
 	       "\t-E -- set EDNS0 size (default: %d)\n"
 	       "\t-d -- tunnel device to use (default: tun1)\n"
 	       "\t-D -- DNS domain to use when DNS tunneling\n"
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
 
 	string prog = argv[0];
 
-	while ((r = getopt(argc, argv, "iIuUR:L:d:k:D:p:P:vE:S:X:r:t:")) != -1) {
+	while ((r = getopt(argc, argv, "iIuUnNR:L:d:k:D:p:P:vE:S:X:r:t:")) != -1) {
 		switch (r) {
 		case 'S':
 			config::useconds = strtoul(optarg, nullptr, 10);
@@ -123,6 +125,18 @@ int main(int argc, char **argv)
 			break;
 		case 'U':
 			how = WRAP_DNS;
+			type = SOCK_DGRAM;
+			family = AF_INET6;
+			protocol = 0;
+			break;
+		case 'n':
+			how = WRAP_NTP4;
+			type = SOCK_DGRAM;
+			family = AF_INET;
+			protocol = 0;
+			break;
+		case 'N':
+			how = WRAP_NTP4;
 			type = SOCK_DGRAM;
 			family = AF_INET6;
 			protocol = 0;
@@ -263,7 +277,7 @@ int main(int argc, char **argv)
 		if (bind(sock, ai->ai_addr, ai->ai_addrlen) < 0)
 			die("bind");
 
-		// bind to port 53 only happens once in WRAP_DNS_REPLY,
+		// bind to port 53 only happens once in WRAP_DNS_REPLY or WRAP_NTP4_REPLY,
 		// re-binding is only for WRAP_DNS_REQUEST to unprived port
 		if (setuid(pw->pw_uid) < 0)
 			die("setuid");

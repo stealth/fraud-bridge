@@ -45,6 +45,8 @@ class bridge {
 
 	int forward_dns(int, int);
 
+	int forward_ntp4(int, int);
+
 public:
 
 	bridge(const std::string &k)
