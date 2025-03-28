@@ -526,9 +526,9 @@ string wrap::ntp4(const string &data)
 	memcpy(packet.get() + sizeof(ntph), &ntpeh, sizeof(ntpeh));
 	memcpy(packet.get() + sizeof(ntph) + sizeof(ntpeh), tcph, data.size() - (iph->ihl<<2));
 
-	// add padding
+	// add padding to NTP4 32bit boundary
 	auto pidx = sizeof(ntph) + sizeof(ntpeh) + data.size() - (iph->ihl<<2);
-	for (; (pidx % sizeof(uint32_t)) != 0; ++pad)
+	for (; ((pidx + pad) % sizeof(uint32_t)) != 0; ++pad)
 		;
 	psize -= sizeof(pad);
 	psize += pad;
@@ -592,7 +592,7 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons(psize);
+	ph.len = ntpeh->length;		// already htons()
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -609,7 +609,7 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 
 	tcph->th_sum = 0;
 	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet.get() + sizeof(d_new_iph) - sizeof(ph)),
-	                        sizeof(ph) + ntohs(ph.len));
+	                        sizeof(ph) + ntohs(ntpeh->length));
 
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
