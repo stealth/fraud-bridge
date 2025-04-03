@@ -78,7 +78,7 @@ int bridge::forward_simple(int sock, int tap)
 	if (!d_wrapper)
 		return build_error("forward_simple: No wrapper defined");
 
-	uint16_t in_mss = 1024, out_mss = 1024;
+	uint16_t in_mss = config::mss, out_mss = config::mss;
 	d_wrapper->set_mss(in_mss, out_mss);
 
 	int max = sock > tap ? sock : tap;
@@ -155,7 +155,6 @@ int bridge::forward_simple(int sock, int tap)
 					logfunc(" <- ");
 			}
 		}
-
 	}
 
 	return 0;

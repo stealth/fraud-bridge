@@ -26,6 +26,7 @@ namespace config {
 	bool background = 0;
 	uint32_t useconds = 5000;
 	uint16_t edns0 = 1024;
+	uint16_t mss = 1024;
 	uint8_t icmp_type = 0;
 	uint32_t max_tx = 1<<20;
 

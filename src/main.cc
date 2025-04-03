@@ -47,7 +47,7 @@ using namespace fraudbridge;
 
 void usage(const string &path)
 {
-	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]\n"
+	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuU] [-s sz]\n"
 	       "\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-t type] [-v]\n\n"
 
 	       "\t-k -- HMAC key to protect tunnel packets\n"
@@ -62,17 +62,17 @@ void usage(const string &path)
 	       "\t-n -- use NTP4 tunnel over IP\n"
 	       "\t-N -- use NTP4 tunnel over IPv6\n"
 	       "\t-E -- set EDNS0 size (default: %d)\n"
+	       "\t-s -- set MSS size (default: %d)\n"
 	       "\t-d -- tunnel device to use (default: tun1)\n"
 	       "\t-D -- DNS domain to use when DNS tunneling\n"
 	       "\t-S -- usec slowdown for DNS ping (default: %d)\n"
 	       "\t-X -- user to run as (default: nobody)\n"
 	       "\t-r -- chroot directory (default: /var/empty)\n"
 	       "\t-t -- override ICMP/ICMP6 type (usually no need to change)\n"
-	       "\t-v -- enable verbose mode\n\n", path.c_str(), config::edns0, config::useconds);
+	       "\t-v -- enable verbose mode\n\n", path.c_str(), config::edns0, config::mss, config::useconds);
 
 	exit(1);
 }
-
 
 
 int main(int argc, char **argv)
@@ -87,8 +87,11 @@ int main(int argc, char **argv)
 
 	string prog = argv[0];
 
-	while ((r = getopt(argc, argv, "iIuUnNR:L:d:k:D:p:P:vE:S:X:r:t:")) != -1) {
+	while ((r = getopt(argc, argv, "iIuUnNR:L:d:k:D:p:P:vE:S:s:X:r:t:")) != -1) {
 		switch (r) {
+		case 's':
+			config::mss = strtoul(optarg, nullptr, 10);
+			break;
 		case 'S':
 			config::useconds = strtoul(optarg, nullptr, 10);
 			break;

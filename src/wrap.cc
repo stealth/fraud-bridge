@@ -20,6 +20,8 @@
 
 #include <string>
 #include <memory>
+#include <time.h>
+#include <endian.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -508,54 +510,61 @@ string wrap::ntp4(const string &data)
 
 	if (is_wrap_reply()) {
 		ntph.mode = MODE_SERVER;
+		ntpeh.type = htons(NTP4_EXT_COOKIE_RESP);
 	} else {
 		ntph.mode = MODE_CLIENT;
+		ntpeh.type = htons(NTP4_EXT_COOKIE_REQ);
 	}
 
-	ntpeh.length = htons(data.size() - (iph->ihl<<2));
+	ntph.rid = d_rnd32;
+	ntph.poll = 9;
+
+	time_t now = time(nullptr);
+	ntph.ref_timestamp = ntph.origin_timestamp = ntph.rx_timestamp = ntph.tx_timestamp = htobe64(now);
+
+	// extension must be padded, but this will lose info about real pkt len, so it needs to be included
+	// as 4-byte octet
+	uint32_t pkt_size_no_pad = data.size() - (iph->ihl<<2);
+	ntpeh.length = htons((pkt_size_no_pad + sizeof(ntpeh) + sizeof(pkt_size_no_pad) + 3) & ~3);	// Now, len is padded
 
 	// unlike ICMP, the MD5 is calculated over ntphdr + data and appended to the end, as
 	// NTP4 protocol has a field (after extensions) for it anyways, so we are going to use it
-	uint32_t mac_id = 0, pad = 0;
+	uint32_t mac_id = 0;
 
-	size_t psize = sizeof(ntph) + sizeof(ntpeh) + data.size() - (iph->ihl<<2) + sizeof(pad) + sizeof(mac_id) + DIGEST_LEN;
-	unique_ptr<char[]> packet(new (nothrow) char[psize]);
+	size_t bufsize = sizeof(ntph) + ntohs(ntpeh.length) + sizeof(mac_id) + DIGEST_LEN;
+	unique_ptr<char[]> packet(new (nothrow) char[bufsize]);
 	if (!packet.get())
 		return result;
 	memcpy(packet.get(), &ntph, sizeof(ntph));
 	memcpy(packet.get() + sizeof(ntph), &ntpeh, sizeof(ntpeh));
-	memcpy(packet.get() + sizeof(ntph) + sizeof(ntpeh), tcph, data.size() - (iph->ihl<<2));
+	uint32_t tval = htonl(pkt_size_no_pad);	// Add real pkt size, but network encoded
+	memcpy(packet.get() + sizeof(ntph) + sizeof(ntpeh), &tval, sizeof(tval));
+	memcpy(packet.get() + sizeof(ntph) + sizeof(ntpeh) + sizeof(pkt_size_no_pad), tcph, pkt_size_no_pad);
 
-	// add padding to NTP4 32bit boundary
-	auto pidx = sizeof(ntph) + sizeof(ntpeh) + data.size() - (iph->ihl<<2);
-	for (; ((pidx + pad) % sizeof(uint32_t)) != 0; ++pad)
-		;
-	psize -= sizeof(pad);
-	psize += pad;
+	size_t hmcsize = bufsize - sizeof(mac_id) - DIGEST_LEN;
 
 	// compute MD5 HMAC
 	unsigned char hmac[EVP_MAX_MD_SIZE] = {0};
 	HMAC(md, d_key.c_str(), (int)d_key.size(),
 	     reinterpret_cast<unsigned char *>(packet.get()),
-	     psize - sizeof(mac_id) - DIGEST_LEN, hmac, nullptr);
+	     hmcsize, hmac, nullptr);
 
-	memcpy(packet.get() + psize - sizeof(mac_id) - DIGEST_LEN, &mac_id, sizeof(mac_id));
-	memcpy(packet.get() + psize - DIGEST_LEN, hmac, DIGEST_LEN);
+	memcpy(packet.get() + hmcsize, &mac_id, sizeof(mac_id));
+	memcpy(packet.get() + hmcsize + sizeof(mac_id), hmac, DIGEST_LEN);
 
-	result.assign(packet.get(), psize);
+	result.assign(packet.get(), bufsize);
 
 	return result;
 }
-
 
 
 string wrap::de_ntp4(const string &data, const sockaddr *from)
 {
 	string result = "";
 
-	uint32_t mac_id = 0;
+	uint32_t mac_id = 0, pkt_size_no_pad = 0;
 
-	if (data.size() < sizeof(ntp4hdr) + sizeof(ntp4exthdr) + sizeof(tcphdr) + sizeof(mac_id) + DIGEST_LEN ||
+	if (data.size() < sizeof(ntp4hdr) + sizeof(ntp4exthdr) + sizeof(pkt_size_no_pad) + sizeof(tcphdr) + sizeof(mac_id) + DIGEST_LEN ||
 	    data.size() > 4096)
 		return result;
 
@@ -570,26 +579,32 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 	const ntp4hdr *ntph = reinterpret_cast<const ntp4hdr *>(data.c_str());
 	const ntp4exthdr *ntpeh = reinterpret_cast<const ntp4exthdr *>(ntph + 1);
 
-
 	uint16_t psize = ntohs(ntpeh->length);
-	if (psize > 4096 || psize < sizeof(tcphdr))
+	if (psize > 4096 || psize < (sizeof(tcphdr) + 2*sizeof(uint32_t)))
 		return result;
 
-	// but psize w/o alignment, so no exact match
-	if (psize > (data.size() - sizeof(ntp4hdr) - sizeof(ntp4exthdr) - sizeof(mac_id) - DIGEST_LEN))
+	if (psize != (data.size() - sizeof(ntp4hdr) - sizeof(mac_id) - DIGEST_LEN))
 		return result;
-	psize += sizeof(d_new_iph);
-	unique_ptr<char[]> packet(new (nothrow) char[psize]);
+
+	memcpy(&pkt_size_no_pad, data.c_str() + sizeof(ntp4hdr) + sizeof(ntp4exthdr), sizeof(pkt_size_no_pad));
+	pkt_size_no_pad = ntohl(pkt_size_no_pad);
+	if (pkt_size_no_pad > (data.size() - sizeof(ntp4hdr) - sizeof(ntp4exthdr) - sizeof(pkt_size_no_pad) - sizeof(mac_id) - DIGEST_LEN))
+		return result;
+
+	pkt_size_no_pad += sizeof(d_new_iph);
+	unique_ptr<char[]> packet(new (nothrow) char[pkt_size_no_pad]);
 	if (!packet.get())
 		return result;
 
-	memcpy(packet.get() + sizeof(d_new_iph), data.c_str() + sizeof(ntp4hdr) + sizeof(ntp4exthdr), psize - sizeof(d_new_iph));
+	memcpy(packet.get() + sizeof(d_new_iph),
+	       data.c_str() + sizeof(ntp4hdr) + sizeof(ntp4exthdr) + sizeof(pkt_size_no_pad),
+	       pkt_size_no_pad - sizeof(d_new_iph));
 
 	pseudohdr ph = {0};
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = ntpeh->length;		// already htons()
+	ph.len = htons(static_cast<uint16_t>(pkt_size_no_pad - sizeof(d_new_iph)));
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -599,19 +614,19 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 		// outside tunnel endpoint is decapsulating what comes from inside, so patch in
 		// max outgoing MSS; and vice versa
 		if (is_wrap_reply())
-			patch_mss(packet.get() + sizeof(d_new_iph) + sizeof(tcphdr), packet.get() + psize, d_out_mss);
+			patch_mss(packet.get() + sizeof(d_new_iph) + sizeof(tcphdr), packet.get() + pkt_size_no_pad, d_out_mss);
 		else
-			patch_mss(packet.get() + sizeof(d_new_iph) + sizeof(tcphdr), packet.get() + psize, d_in_mss);
+			patch_mss(packet.get() + sizeof(d_new_iph) + sizeof(tcphdr), packet.get() + pkt_size_no_pad, d_in_mss);
 	}
 
 	tcph->th_sum = 0;
 	tcph->th_sum = in_cksum(reinterpret_cast<unsigned short *>(packet.get() + sizeof(d_new_iph) - sizeof(ph)),
-	                        sizeof(ph) + ntohs(ntpeh->length));
+	                        sizeof(ph) + pkt_size_no_pad - sizeof(d_new_iph));
 
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(psize);
+	d_new_iph_ptr->tot_len = htons(pkt_size_no_pad);
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 	// no need to set remote peer on tunnel endpoint inside, which is using -R
@@ -622,7 +637,7 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 			memcpy(&d_remote_peer6, reinterpret_cast<const sockaddr_in6* >(from), sizeof(sockaddr_in6));
 	}
 
-	result.assign(packet.get(), psize);
+	result.assign(packet.get(), pkt_size_no_pad);
 	return result;
 }
 

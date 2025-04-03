@@ -29,6 +29,7 @@ namespace config {
 	extern bool verbose, background;
 	extern uint32_t useconds;
 	extern uint16_t edns0;
+	extern uint16_t mss;
 	extern uint32_t max_tx;
 	extern uint8_t icmp_type;
 	extern std::string peer1, peer2;

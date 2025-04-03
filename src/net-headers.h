@@ -337,6 +337,13 @@ enum ntp4_flags_t : uint8_t {
 	STRATUM_RESERVED	=	17
 };
 
+// IANA has already defined some extensions. Check RFC5906 section 13
+enum ntp4_ext_field_t : uint16_t {
+
+	NTP4_EXT_COOKIE_REQ	= 0x0302,
+	NTP4_EXT_COOKIE_RESP	= 0x8302
+};
+
 
 class ntp4hdr {
 public:

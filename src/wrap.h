@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <cstdint>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -63,8 +64,21 @@ enum wrap_t : unsigned int {
 
 class wrap {
 
+	net_headers::iphdr d_new_iph;
+
+	sockaddr_in d_remote_peer;
+	sockaddr_in6 d_remote_peer6;
+
+	std::string d_err{""}, d_key{""}, d_domain{""};
+
+	DNS *d_dns{nullptr};
+
+	int d_family{AF_INET}, d_saved_errno{0};
+
+	uint32_t d_rnd32{0};
+
 	wrap_t d_how{WRAP_INVALID};
-	bool d_mod_mss{0};
+
 	uint16_t d_in_mss{1024}, d_out_mss{1024};
 
 	// last ICMP seq and id field seen on rcv, and for ICMP_ECHO (inside) pkts, the next chosen icmp id
@@ -72,18 +86,11 @@ class wrap {
 
 	uint8_t d_icmp_type{net_headers::ICMP_ECHO_REQUEST};
 
+	bool d_mod_mss{0};
+
 	static const uint16_t DIGEST_LEN;
 	static const EVP_MD *md;
 	static const uint8_t ICMP6_ECHO_MAGIC;
-
-	net_headers::iphdr d_new_iph;
-	int d_family{AF_INET}, d_saved_errno{0};
-	std::string d_err{""}, d_key{""}, d_domain{""};
-
-	DNS *d_dns{nullptr};
-
-	sockaddr_in d_remote_peer;
-	sockaddr_in6 d_remote_peer6;
 
 	std::string icmp_request(const std::string &);
 
@@ -143,6 +150,7 @@ public:
 		memset(&d_remote_peer6, 0, sizeof(d_remote_peer6));
 		d_remote_peer6.sin6_family = AF_INET6;
 
+		d_rnd32 = time(nullptr) % 0xffffffff;
 	}
 
 	int init(const std::string &, const std::string &, const std::string &, uint16_t, uint8_t);
