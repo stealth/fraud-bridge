@@ -47,7 +47,7 @@ using namespace fraudbridge;
 
 void usage(const string &path)
 {
-	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuU] [-s sz]\n"
+	printf("Usage: %s <-k key> [-R IP] [-L IP] [-pP port] [-iIuUnN] [-s sz]\n"
 	       "\t[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-t type] [-v]\n\n"
 
 	       "\t-k -- HMAC key to protect tunnel packets\n"

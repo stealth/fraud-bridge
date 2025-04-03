@@ -10,31 +10,28 @@ Intro
 -----
 
 This project helps bypassing restrictive censorship environments that block
-direct TCP or UDP connections, by setting up ICMP, ICMP6, DNS or DNS over UDP6
-tunnels. It has the same aim as *icmptx*, *iodine*, *ozzyman DNS*, *nstx* etc.
+direct TCP or UDP connections, by setting up ICMP, NTP or DNS (over IPv4 or IPv6)
+tunnels.
 
-It automatically patches TCP MSS option to achieve a non-fragmented stream
-of packets (known as MSS-clamping).
+It automatically patches TCP MSS option to achieve a non-fragmented stream of packets (known as MSS-clamping).
 
-It also uses MD5 to (HMAC-)integrity protect the tunnel
-from evil injected TCP packets. If you need privacy, you have to use encryption
-yourself. Its assumed that you use SSH over the tunnel anyways.
-(Either directly or with the SSH proxy option if you need HTTP tunneled.)
+It uses MD5 to (HMAC-)integrity protect the tunnel from evil injected TCP packets. If you need privacy,
+you have to use encryption yourself. Its assumed that you use SSH over the tunnel anyways.
+Either directly or with the SSH proxy option if you need HTTP tunneled.
 
-*fraud-bridge* also uses `EDNS0` extension headers to put as many bytes into
-the `TXT` reply as possible. In my tests, as it tries to answer any timing
-packets, it produces no logs in a *bind9* system log-file. If you change
-the `EDNS0` (-E), you need to do it on both ends with the same value.
-(As inside announces maximum UDP payload size to the nameserver and outside
-endpoint calculates the MSS from that what was given with -E.)
+When DNS tunneling, *fraud-bridge* uses `EDNS0` extension headers to put as many bytes into
+the `TXT` reply as possible.
 
-*fraud-bridge* also includes some other techniques to cope with
-certain *bind* limitations, e.g. quotas/limiting.
+*fraud-bridge* also includes some other techniques to cope with certain *bind* limitations, e.g. quotas/limiting.
 
-Please also note that `c->skills` is providing the full chain of
-censorship fucking equipment you may be interested in:
+Please also note that `c->skills` is providing the full chain of censorship fucking equipment you may be interested in:
 
 [crash](https://github.com/stealth/crash) and [psc](https://github.com/stealth/psc)
+
+You can also use *fraud-bridge* to get full roaming/mobility support into your SSH sessions without any
+patch.
+
+Once you have set up the tunnel, you might want to read [how to get your messenger working across the tunnel.](https://github.com/stealth/crash/blob/master/contrib/proxywars.md)
 
 Build
 -----
@@ -49,24 +46,28 @@ The usage is as follows:
 ```
 fraud-bridge -- https://github.com/stealth/fraud-bridge
 
-Usage: ./fraud-bridge <-k key> [-R IP] [-L IP] [-pP port] [-iIuU]
-	[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-v]
+Usage: fraud-bridge <-k key> [-R IP] [-L IP] [-pP port] [-iIuUnN] [-s sz]
+	[-E sz] [-d dev] [-D domain] [-S usec] [-X user] [-r dir] [-t type] [-v]
 
 	-k -- HMAC key to protect tunnel packets
 	-R -- IP or IPv6 addr of (outside) peer when started inside
 	-L -- local IP addr to bind to if started outside (can be omitted)
-	-p -- remote port to use if in DNS mode (default: 53)
-	-P -- local port to use if in DNS mode (outside default: 53)
+	-p -- remote port when in DNS/NTP mode (default: 53/123)
+	-P -- local port when in DNS/NTP mode (outside default: 53/123)
 	-i -- use ICMP tunnel
 	-I -- use ICMPv6 tunnel
 	-u -- use DNS tunnel over IP
 	-U -- use DNS tunnel over IPv6
+	-n -- use NTP4 tunnel over IP
+	-N -- use NTP4 tunnel over IPv6
 	-E -- set EDNS0 size (default: 1024)
+	-s -- set MSS size (default: 1024)
 	-d -- tunnel device to use (default: tun1)
 	-D -- DNS domain to use when DNS tunneling
 	-S -- usec slowdown for DNS ping (default: 5000)
 	-X -- user to run as (default: nobody)
 	-r -- chroot directory (default: /var/empty)
+	-t -- override ICMP/ICMP6 type (usually no need to change)
 	-v -- enable verbose mode
 ```
 
@@ -116,18 +117,20 @@ you can still use DNS tunneling by using your VPS IP as `-R` parameter
 on inside and using any (but the same) `-D` domain paramater on both ends
 that look legit for an censorship regime, e.g. `-D blah.gov`.
 
-Before trying DNS tunneling, you should most likely try with ICMP tunneling.
+**Before trying DNS tunneling, you most likely want to try with ICMP or NTP tunneling.**
 If you see `chroot` warnings in the syslog, you can ignore them or provide
 valid arguments to `-r`.
 
-You can then use `ssh -x -v 1.2.3.5` to get a SSH connection to `192.168.2.222`
-in above example and use the SSH proxy options to setup a web browser environment that runs
-across the tunnel.
+You can then use `ssh -D 1234 1.2.3.5` to get a SSH connection to `192.168.2.222`
+in above example and use the SOCKS5 proxy on port `:1234` for your web browser session
+that then runs across the tunnel.
 
 You can also do that with ICMP: `-i` and ICMP on IPv6: `-I` or DNS on UDP via
-IPv6: `-U`.
-It's also possible to switch tunnel from DNS to ICMP beyond your SSH connection,
-as the TCP state is kept in local and remote kernel and not in the bridge.
+IPv6: `-U` or NTP via UDP: `-n` or NTP via UDP/IPv6: `-N`.
+
+It's also possible to switch the kind of tunnel (DNS to ICMP or ICMP to NTP) beyond your SSH connection,
+or to roam to another local IP (e.g. switching from wifi to 5G) as the TCP state is kept in local and remote
+kernel and not in the bridge. This allows full SSH roaming/mobility support without any patch to SSH.
 
 In verbose mode, *fraud-bridge* will leave `stdout` open for reporting errors or messages,
 so you need to run it on a screen or redirect output to `/dev/null` if you need
@@ -137,7 +140,20 @@ errors to syslog.
 
 Before using any ICMP tunnels, make sure to relax your cable-modem's firewalling rules
 in order to receive the reply packets from your remote peer. *fraud-bridge* works behind
-NAT, but it needs to receive the reply packets at last.
+NAT, but it needs to receive the reply packets at last. When using ICMP tunneling and ICMP echos
+are blocked, you can set the type parameter via `-t`. For instance using `-t 13` inside and `-t 14`
+outside to get timestamp request/reply pairs.
+
+When DNS tunneling, *fraud-bridge* uses `EDNS0` extension headers to put as many bytes into
+the `TXT` reply as possible. In my tests, as it tries to answer any timing
+packets, it produces no logs in a *bind9* system log-file. If you change
+the `EDNS0` (-E), you need to do it on both ends with the same value.
+(As inside announces maximum UDP payload size to the nameserver and outside
+endpoint calculates the MSS from that what was given with -E.)
+
+When using NTP tunneling, some providers with CGN block large NTP packets (on IPv4 only). In a common german
+ISP, any NTP packets > 256 bytes were blocked. So you have to set the MSS accordingly to get smaller packets
+like `-s 100` so that the TCP stack is sending the segments in smaller sizes.
 
 Performance considerations
 --------------------------
