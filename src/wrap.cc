@@ -127,7 +127,7 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons((uint16_t)data.size() - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN);
+	ph.len = htons(static_cast<uint16_t>(data.size()) - (iph->ihl<<2) - sizeof(icmphdr) - DIGEST_LEN);
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -149,7 +149,7 @@ string wrap::de_icmp(const string &data, const sockaddr_in *from)
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(psize);
+	d_new_iph_ptr->tot_len = htons(static_cast<uint16_t>(psize));
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 	// no need to set remote peer on tunnel endpoint inside, which is using -R
@@ -247,7 +247,7 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons((uint16_t)data.size() - sizeof(icmp6_hdr) - DIGEST_LEN);
+	ph.len = htons(static_cast<uint16_t>(data.size()) - sizeof(icmp6_hdr) - DIGEST_LEN);
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -269,7 +269,7 @@ string wrap::de_icmp6(const string &data, const sockaddr_in6 *from6)
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(psize);
+	d_new_iph_ptr->tot_len = htons(static_cast<uint16_t>(psize));
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 	if (is_wrap_reply())
@@ -403,7 +403,7 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons((uint16_t)tmp.size() - DIGEST_LEN);
+	ph.len = htons(static_cast<uint16_t>(tmp.size()) - DIGEST_LEN);
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -425,7 +425,7 @@ string wrap::de_dns_request(const string &data, const sockaddr *from)
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(psize);
+	d_new_iph_ptr->tot_len = htons(static_cast<uint16_t>(psize));
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 
@@ -465,7 +465,7 @@ string wrap::de_dns_reply(const string &data)
 	ph.saddr = d_new_iph.saddr;
 	ph.daddr = d_new_iph.daddr;
 	ph.proto = IPPROTO_TCP;
-	ph.len = htons((uint16_t)tmp.size() - DIGEST_LEN);
+	ph.len = htons(static_cast<uint16_t>(tmp.size()) - DIGEST_LEN);
 
 	memcpy(packet.get() + sizeof(d_new_iph) - sizeof(ph), &ph, sizeof(ph));
 	tcphdr *tcph = reinterpret_cast<tcphdr *>(packet.get() + sizeof(d_new_iph));
@@ -487,7 +487,7 @@ string wrap::de_dns_reply(const string &data)
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(psize);
+	d_new_iph_ptr->tot_len = htons(static_cast<uint16_t>(psize));
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 	result.assign(packet.get(), psize);
@@ -525,7 +525,7 @@ string wrap::ntp4(const string &data)
 	// extension must be padded, but this will lose info about real pkt len, so it needs to be included
 	// as 4-byte octet
 	uint32_t pkt_size_no_pad = data.size() - (iph->ihl<<2);
-	ntpeh.length = htons((pkt_size_no_pad + sizeof(ntpeh) + sizeof(pkt_size_no_pad) + 3) & ~3);	// Now, len is padded
+	ntpeh.length = htons((static_cast<uint16_t>(pkt_size_no_pad) + sizeof(ntpeh) + sizeof(pkt_size_no_pad) + 3) & ~3);	// Now, len is padded
 
 	// unlike ICMP, the MD5 is calculated over ntphdr + data and appended to the end, as
 	// NTP4 protocol has a field (after extensions) for it anyways, so we are going to use it
@@ -626,7 +626,7 @@ string wrap::de_ntp4(const string &data, const sockaddr *from)
 	memcpy(packet.get(), &d_new_iph, sizeof(d_new_iph));
 
 	iphdr *d_new_iph_ptr = reinterpret_cast<iphdr *>(packet.get());
-	d_new_iph_ptr->tot_len = htons(pkt_size_no_pad);
+	d_new_iph_ptr->tot_len = htons(static_cast<uint16_t>(pkt_size_no_pad));
 	d_new_iph_ptr->check = in_cksum(reinterpret_cast<unsigned short *>(packet.get()), sizeof(d_new_iph));
 
 	// no need to set remote peer on tunnel endpoint inside, which is using -R

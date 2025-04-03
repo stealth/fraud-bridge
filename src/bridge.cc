@@ -134,7 +134,7 @@ int bridge::forward_simple(int sock, int tap)
 			packet = d_wrapper->pack(string(buf + sizeof(th), r - sizeof(th)));
 			d_wrapper->get_dst(dst);
 
-			if (config::verbose)
+			if (config::verbose && packet.size())
 				logfunc(" -> ");
 
 			// ignore errors

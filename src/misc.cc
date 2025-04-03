@@ -55,6 +55,7 @@ void log(const string &s)
 		else
 			printf("%s\n", s.c_str());
 	}
+	errno = 0;
 }
 
 
