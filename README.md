@@ -1,5 +1,3 @@
-fraud-bridge
-============
 
 <p align="center">
 <img src="https://github.com/stealth/fraud-bridge/blob/master/fraud-bridge.jpg" />
