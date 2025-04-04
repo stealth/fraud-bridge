@@ -36,6 +36,11 @@ Build
 
 Basically you just do `make` on Linux.
 
+<p align="center">
+<img src="https://github.com/stealth/fraud-bridge/blob/master/bridge.jpg" />
+</p>
+
+
 Run
 ---
 
