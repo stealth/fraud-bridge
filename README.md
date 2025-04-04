@@ -7,39 +7,34 @@
 Intro
 -----
 
-This project helps bypassing restrictive censorship environments that block
-direct TCP or UDP connections, by setting up ICMP, NTP or DNS (over IPv4 or IPv6)
-tunnels.
+*fraud-bridge* helps bypassing restrictive censorship environments that block direct TCP or UDP connections,
+by setting up ICMP, NTP or DNS (over IPv4 or IPv6) tunnels.
 
-It automatically patches TCP MSS option to achieve a non-fragmented stream of packets (known as MSS-clamping).
+It automatically patches TCP MSS option to achieve a non-fragmented stream of packets (known as MSS-clamping) to gain
+performance that allows to use web-sessions across the bridge.
 
 It uses MD5 to (HMAC-)integrity protect the tunnel from evil injected TCP packets. If you need privacy,
 you have to use encryption yourself. Its assumed that you use SSH over the tunnel anyways.
 Either directly or with the SSH proxy option if you need HTTP tunneled.
 
-When DNS tunneling, *fraud-bridge* uses `EDNS0` extension headers to put as many bytes into
-the `TXT` reply as possible.
+When DNS tunneling, *fraud-bridge* uses `EDNS0` extension headers to put as many bytes into the `TXT` reply as possible.
 
 *fraud-bridge* also includes some other techniques to cope with certain *bind* limitations, e.g. quotas/limiting.
 
-Please also note that `c->skills` is providing the full chain of censorship fucking equipment you may be interested in:
-
-[crash](https://github.com/stealth/crash) and [psc](https://github.com/stealth/psc)
-
-You can also use *fraud-bridge* to get full roaming/mobility support into your SSH sessions without any
-patch.
+**You can also use it to get full roaming/mobility support into your SSH sessions without any patch.**
 
 Once you have set up the tunnel, you might want to read [how to get your messenger working across the tunnel.](https://github.com/stealth/crash/blob/master/contrib/proxywars.md)
 
+Also note that `c->skills` is providing the full chain of censorship fucking equipment you may be interested in: [crash](https://github.com/stealth/crash) and [psc](https://github.com/stealth/psc)
+
 Build
 -----
-
-Basically you just do `make` on Linux.
 
 <p align="center">
 <img src="https://github.com/stealth/fraud-bridge/blob/master/bridge.jpg" />
 </p>
 
+Just do `make` on Linux.
 
 Run
 ---
